@@ -1,34 +1,37 @@
 # Deep-Arxiv.ai Development TODOs
 
 ## Project Overview
-Building a subscription-based AI-powered wiki for arXiv papers, similar to DeepWiki but for academic papers. Users can browse cached papers for free, but need subscriptions to index new papers or chat with them.
+Building a public AI-powered wiki for arXiv papers, similar to DeepWiki but for academic papers. All features are free and publicly accessible - users can browse papers, index new papers, and chat with them without authentication.
 
 ## ✅ COMPLETED
 
 ### Initial Setup & Supabase Integration
-- [x] Added Supabase dependencies (`@supabase/supabase-js`, auth UI components)
+- [x] Added Supabase dependencies (`@supabase/supabase-js`)
 - [x] Created basic Supabase client (`frontend/src/supabaseClient.ts`)
 - [x] Fixed TypeScript config (JSX import source)
-- [x] Set up Supabase project structure with initial schema
-- [x] Created database tables: profiles, papers, chats, private_papers
-- [x] Configured Row Level Security (RLS) policies
+- [x] Set up Supabase project structure with simplified schema
+- [x] Created simplified database tables: papers, chats (public access)
+- [x] Configured Row Level Security (RLS) policies for public access
 - [x] Set up local Supabase development environment
+- [x] Removed authentication and subscription dependencies
 
 ## 🚀 IN PROGRESS
 *Currently working on items will be marked here*
 
 ## 📋 Hackathon MVP (No Cloudflare, No Auth/Stripe)
 
-### What we’re building now
-- Public MVP: Search cached papers, view wiki content, and “Index this paper” using a Supabase Edge Function. Defer Cloudflare/Stripe/Auth/Chat.
+### What we're building now
+- Public MVP: Search cached papers, view wiki content, and "Index this paper" using a Supabase Edge Function. Everything is public access.
 
 ### Prereqs (You)
-- [ ] Provide `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API).
+- [x] Provided `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API).
 - [ ] Provide `GEMINI_API_KEY`.
 
 ### Database (MVP)
-- [ ] Ensure `public.papers` has columns: `arxiv_id (unique)`, `title`, `authors jsonb`, `abstract`, `pdf_url`, `wiki_content jsonb`, `created_at`.
-- [ ] Enable RLS with public read policy; writes only via Edge Function (Service Role).
+- [x] Simplified database schema to remove auth dependencies
+- [x] Ensure `public.papers` has columns: `arxiv_id (unique)`, `title`, `authors jsonb`, `abstract`, `pdf_url`, `wiki_content jsonb`, `created_at`.
+- [x] Enable RLS with public read/write policies
+- [ ] Test database connection and verify schema works
 
 ### Edge Function: index-paper
 - [ ] Create `index-paper` (Supabase Edge Function):
@@ -43,10 +46,12 @@ Building a subscription-based AI-powered wiki for arXiv papers, similar to DeepW
 - [ ] Deploy function and note URL.
 
 ### Frontend wiring
+- [ ] Remove authentication components and flows from frontend
 - [ ] Replace `data.ts` list with `supabase.from('papers').select('*').not('wiki_content','is',null)`.
 - [ ] Paper route: `supabase.from('papers').select('*').eq('arxiv_id', id).single()`.
-- [ ] If `wiki_content` is null: show “Index this paper” button → POST to function → poll the paper row every 2–3s until content exists → render wiki.
+- [ ] If `wiki_content` is null: show "Index this paper" button → POST to function → poll the paper row every 2–3s until content exists → render wiki.
 - [ ] Dev target: if `import.meta.env.DEV`, call local function serve URL; else production function URL.
+- [ ] Test end-to-end workflow locally
 
 ### Dev/Deploy
 - [ ] Local: `supabase functions serve --env-file supabase/.env`.
@@ -54,145 +59,87 @@ Building a subscription-based AI-powered wiki for arXiv papers, similar to DeepW
 - [ ] Deploy function: `supabase functions deploy index-paper`.
 
 ### Deferred to Phase 2
-- Cloudflare Worker API gateway, Stripe subscriptions, quotas, chat, realtime, rate limiting, email notifications.
+- Cloudflare Worker API gateway, advanced chat features, realtime updates, rate limiting, email notifications.
 
-## 📋 TODO - PHASE 1: Core Backend (Cloudflare Workers) – Deferred
+## 📋 TODO - PHASE 2: Enhanced Features (Post-Hackathon)
 
-### Core API Infrastructure  
-- [ ] Set up Worker with itty-router
-- [ ] Create Supabase client in Worker
-- [ ] Create Stripe client in Worker
-- [ ] Implement Gemini API integration helper
-- [ ] Create authentication middleware
-- [ ] Set up error handling and logging
+### Advanced Chat System
+- [ ] Implement public chat functionality with papers
+- [ ] Create conversation threading
+- [ ] Add chat history and persistence
+- [ ] Implement real-time chat updates
 
-### Database Schema Enhancements
-- [ ] Add missing tables from PRD:
-  - [ ] subscriptions table
-  - [ ] usage table (for quotas)
-  - [ ] indexing_jobs table
-  - [ ] wiki_contents table (separate from papers)
-- [ ] Create Supabase RPC function for quota management
-- [ ] Set up monthly usage reset cron job
-- [ ] Add database triggers for arXiv metadata fetching
+### Community Features
+- [ ] Add public paper collections
+- [ ] Implement community annotations
+- [ ] Create paper discussion threads
+- [ ] Add collaborative wiki editing
 
-### Public API Endpoints (No Auth Required)
-- [ ] GET /api/papers/search - Search cached papers
-- [ ] GET /api/papers/:arxiv_id - Get paper wiki content
-- [ ] GET /api/papers/trending - Get popular papers
-- [ ] Implement arXiv metadata fetching helper
+### Performance & Scaling
+- [ ] Implement caching strategies
+- [ ] Add search optimization
+- [ ] Set up CDN for static assets
+- [ ] Optimize database queries
 
-### Authentication Endpoints
-- [ ] POST /api/auth/signup - User registration
-- [ ] POST /api/auth/login - User login  
-- [ ] GET /api/user - Get current user profile
+## 📋 TODO - PHASE 3: Advanced Analytics & Insights
 
-## 📋 TODO - PHASE 2: Subscription & Payment System
+### Research Analytics
+- [ ] Implement research trend analysis
+- [ ] Create citation network visualization
+- [ ] Add topic modeling and clustering
+- [ ] Build research impact metrics
 
-### Stripe Integration
-- [ ] Create Stripe products and prices for tiers (Basic, Pro, Unlimited)
-- [ ] POST /api/subscribe - Create subscription
-- [ ] POST /api/subscribe/cancel - Cancel subscription
-- [ ] POST /api/stripe/webhook - Handle Stripe webhooks
-- [ ] Implement subscription status checks
-- [ ] Set up webhook endpoint verification
+### Data Visualization
+- [ ] Create interactive paper relationship graphs
+- [ ] Add research timeline visualizations
+- [ ] Implement author collaboration networks
+- [ ] Build field-specific trend dashboards
 
-### Quota Management
-- [ ] Implement quota checking logic
-- [ ] Create usage tracking system
-- [ ] Set up monthly quota resets
-- [ ] Add quota enforcement to protected endpoints
+## 📋 TODO - PHASE 4: API & Integrations
 
-## 📋 TODO - PHASE 3: Paper Indexing System
+### Public API
+- [ ] Create REST API for third-party access
+- [ ] Implement GraphQL endpoint
+- [ ] Add API rate limiting
+- [ ] Create developer documentation
 
-### Indexing API
-- [ ] POST /api/papers/:arxiv_id/index - Queue indexing job
-- [ ] Implement quota checks before indexing
-- [ ] Set up Cloudflare Queue consumer
-- [ ] Create job status tracking
+### External Integrations
+- [ ] Integrate with reference managers (Zotero, Mendeley)
+- [ ] Add export to various formats (BibTeX, RIS)
+- [ ] Connect with academic social networks
+- [ ] Implement citation tracking services
 
-### AI Content Generation
-- [ ] Implement PDF download from arXiv
-- [ ] Create base64 encoding for Gemini API
-- [ ] Design AI prompts for wiki generation
-- [ ] Implement structured content parsing (sections, diagrams, tables)
-- [ ] Set up Mermaid diagram generation
-- [ ] Create content storage in wiki_contents table
+## 📋 TODO - PHASE 5: Testing & Production
 
-### Job Processing
-- [ ] Build queue consumer for indexing jobs
-- [ ] Implement error handling and retries  
-- [ ] Set up email notifications (SendGrid)
-- [ ] Add real-time status updates via Supabase
-
-## 📋 TODO - PHASE 4: Chat System
-
-### Chat API
-- [ ] POST /api/papers/:arxiv_id/chat - Initialize chat session
-- [ ] POST /api/chat/:session_id/message - Send chat message
-- [ ] Implement chat quota management
-- [ ] Set up session management and expiry
-
-### AI Chat Integration
-- [ ] Create context loading (wiki + PDF)
-- [ ] Implement conversation history management
-- [ ] Design chat prompts for Gemini
-- [ ] Add streaming responses (if needed)
-
-## 📋 TODO - PHASE 5: Frontend Integration
-
-### Authentication UI
-- [ ] Integrate Supabase Auth UI components
-- [ ] Create login/signup flows
-- [ ] Add authentication state management
-- [ ] Implement protected route logic
-
-### Main Application Features  
-- [ ] Update paper search to use real API
-- [ ] Integrate subscription management UI
-- [ ] Add indexing request interface
-- [ ] Build chat interface
-- [ ] Implement real-time indexing status
-- [ ] Add usage quota display
-
-### User Dashboard
-- [ ] Create subscription status display
-- [ ] Add usage tracking visualization  
-- [ ] Build indexing history
-- [ ] Create chat session management
-
-## 📋 TODO - PHASE 6: Testing & Deployment
-
-### Testing
-- [ ] Test all API endpoints with Postman/curl
-- [ ] Test Stripe webhook integration
-- [ ] Test indexing workflow end-to-end
-- [ ] Test chat functionality
-- [ ] Load testing for Workers
-- [ ] Test quota enforcement
+### Testing Strategy
+- [ ] Test all core functionality end-to-end
+- [ ] Test Edge Function performance
+- [ ] Verify database schema and policies
+- [ ] Test frontend integration locally
+- [ ] Load testing for public access
 
 ### Production Deployment
-- [ ] Deploy Cloudflare Worker to production
-- [ ] Configure production Supabase project
-- [ ] Set up production Stripe webhooks
-- [ ] Configure DNS and domain routing
-- [ ] Set up monitoring and alerting
+- [ ] Deploy Supabase Edge Functions
+- [ ] Configure production environment variables
+- [ ] Set up monitoring and logging
 - [ ] Test production workflows
+- [ ] Configure domain and SSL
 
-### Documentation & Maintenance
-- [ ] Create API documentation
-- [ ] Set up error monitoring
+### Maintenance & Monitoring
+- [ ] Set up error tracking
 - [ ] Create backup strategies
 - [ ] Plan scaling considerations
+- [ ] Monitor usage patterns
 
 ---
 
 ## Notes
-- This project follows the detailed PRD at `/prd.md`
+- This project follows the updated PRD at `/prd.md` (simplified for hackathon MVP)
 - Frontend is built in this repo. Current preview: https://deep-arxiv.saeejithn.workers.dev/. The `deep-arxiv.ai` domain is not live yet.
-- Focus is on backend implementation using Cloudflare Workers + Supabase
-- Target architecture: Serverless, scalable, subscription-based
+- Focus is on public access MVP using Supabase Edge Functions
+- Target architecture: Serverless, scalable, fully public
 - AI powered by Google Gemini with full PDF context (no chunking)
+- No authentication or payment systems for hackathon MVP
 
 ## Current Priority
-Starting with **Phase 1: Core Backend** - setting up the foundational Cloudflare Workers infrastructure and basic API endpoints.
+**Hackathon MVP** - Get core paper indexing functionality working locally within 4 hours. Everything public access, no auth required.
