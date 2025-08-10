@@ -542,7 +542,7 @@ const HomePage: React.FC = () => {
 
   // Filter and sort papers
   const filteredPapers = useMemo(() => {
-    let filtered = papers;
+    let filtered = [...papers];
 
     // Filter by search query
     if (filters.query) {
@@ -590,7 +590,7 @@ const HomePage: React.FC = () => {
     });
 
     return filtered;
-  }, [filters]);
+  }, [filters, papers]);
 
   // Allow Enter in search to open/index arXiv links/IDs directly
   const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
