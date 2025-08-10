@@ -1,0 +1,3 @@
+[submodule "third-party/deep-arxiv-backend"]
+	path = third-party/deep-arxiv-backend
+	url = https://github.com/jsaluja/deep-arxiv.git
