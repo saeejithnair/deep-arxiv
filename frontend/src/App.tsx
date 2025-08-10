@@ -2,11 +2,12 @@ import type React from 'react';
 import { useState, useMemo, createContext, useContext, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import type { Paper, User, ChatMessage, SearchFilters } from './types';
-import { papers, categories } from './data';
+import { categories } from './data';
 import PaperAnalysisPage from './components/PaperAnalysisPage';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from './supabaseClient';
+import { PaperService } from './services/paperService';
 
 // Theme Context
 type Theme = 'light' | 'dark';
@@ -338,6 +339,102 @@ const ChatInterface: React.FC<{ isOpen: boolean; onClose: () => void; paperConte
   );
 };
 
+const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPaperAdded }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [arxivId, setArxivId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!arxivId.trim()) return;
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      const paper = await PaperService.indexPaper(arxivId.trim());
+      if (paper) {
+        onPaperAdded(paper);
+        setIsModalOpen(false);
+        setArxivId('');
+      } else {
+        setError('Failed to index paper. Please check the arXiv ID and try again.');
+      }
+    } catch (err) {
+      setError('An error occurred while indexing the paper.');
+      console.error('Error indexing paper:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div 
+        onClick={() => setIsModalOpen(true)}
+        className="add-paper-card bg-arxiv-warm-wash border-dashed border-arxiv-library-grey hover:bg-arxiv-cool-wash hover:border-arxiv-archival-blue dark:bg-dark-secondary dark:border-dashed dark:border-dark-border dark:hover:bg-dark-card dark:hover:border-dark-primary cursor-pointer"
+      >
+        <div className="add-paper-card-icon text-arxiv-library-grey group-hover:text-arxiv-archival-blue dark:text-dark-text-muted dark:group-hover:text-dark-primary">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <div className="add-paper-card-title text-arxiv-repository-brown dark:text-dark-text">Add paper</div>
+        <div className="add-paper-card-description text-arxiv-library-grey dark:text-dark-text-secondary">Analyze any research paper</div>
+      </div>
+
+      {/* Add Paper Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-dark-card rounded-lg p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-semibold text-arxiv-repository-brown dark:text-dark-text mb-4">Add New Paper</h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="arxivId" className="block text-sm font-medium text-arxiv-library-grey dark:text-dark-text-secondary mb-2">
+                  arXiv ID
+                </label>
+                <input
+                  type="text"
+                  id="arxivId"
+                  value={arxivId}
+                  onChange={(e) => setArxivId(e.target.value)}
+                  placeholder="e.g., 1502.03167"
+                  className="w-full px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue dark:bg-dark-input dark:border-dark-border dark:text-dark-text dark:focus:ring-dark-primary"
+                  disabled={loading}
+                />
+              </div>
+
+              {error && (
+                <div className="text-red-600 dark:text-red-400 text-sm">{error}</div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 px-4 py-2 text-arxiv-library-grey border border-arxiv-library-grey rounded-md hover:bg-arxiv-warm-wash dark:text-dark-text-secondary dark:border-dark-border dark:hover:bg-dark-secondary"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-arxiv-archival-blue text-white rounded-md hover:bg-arxiv-link-blue dark:bg-dark-primary dark:hover:bg-dark-primary-hover disabled:opacity-50"
+                  disabled={loading || !arxivId.trim()}
+                >
+                  {loading ? 'Indexing...' : 'Index Paper'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => {
   const navigate = useNavigate();
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -394,12 +491,31 @@ const HomePage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<SearchFilters>({
     query: '',
     category: 'all',
     sortBy: 'views',
     field: ''
   });
+
+  // Load papers from backend
+  useEffect(() => {
+    const loadPapers = async () => {
+      try {
+        setLoading(true);
+        const papersData = await PaperService.getPapers();
+        setPapers(papersData);
+      } catch (error) {
+        console.error('Error loading papers:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPapers();
+  }, []);
 
   // Filter and sort papers
   const filteredPapers = useMemo(() => {
@@ -509,26 +625,22 @@ const HomePage: React.FC = () => {
           {/* Papers Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-16">
             {/* Add Paper Card */}
-            <div className="add-paper-card bg-arxiv-warm-wash border-dashed border-arxiv-library-grey hover:bg-arxiv-cool-wash hover:border-arxiv-archival-blue dark:bg-dark-secondary dark:border-dashed dark:border-dark-border dark:hover:bg-dark-card dark:hover:border-dark-primary">
-              <div className="add-paper-card-icon text-arxiv-library-grey group-hover:text-arxiv-archival-blue dark:text-dark-text-muted dark:group-hover:text-dark-primary">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <div className="add-paper-card-title text-arxiv-repository-brown dark:text-dark-text">Add paper</div>
-              <div className="add-paper-card-description text-arxiv-library-grey dark:text-dark-text-secondary">Analyze any research paper</div>
-            </div>
+            <AddPaperCard onPaperAdded={(newPaper) => setPapers(prev => [newPaper, ...prev])} />
 
             {filteredPapers.map((paper) => (
               <PaperCard key={paper.id} paper={paper} user={user || undefined} />
             ))}
           </div>
 
-          {filteredPapers.length === 0 && (
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="deep-arxiv-text-secondary text-lg">Loading papers...</p>
+            </div>
+          ) : filteredPapers.length === 0 ? (
             <div className="text-center py-12">
               <p className="deep-arxiv-text-secondary text-lg">No papers found matching your search.</p>
             </div>
-          )}
+          ) : null}
         </main>
 
         {/* Floating Chat Button */}
@@ -575,16 +687,43 @@ function App() {
 // Wrapper component for paper analysis route
 const PaperAnalysisWrapper: React.FC = () => {
   const { arxivId, section } = useParams<{ arxivId: string; section?: string }>();
+  const [paper, setPaper] = useState<Paper | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Find paper by arXiv ID
-  const paper = papers.find(p => p.arxivId === arxivId);
+  useEffect(() => {
+    const loadPaper = async () => {
+      if (!arxivId) return;
+      
+      try {
+        setLoading(true);
+        const paperData = await PaperService.getPaperByArxivId(arxivId);
+        setPaper(paperData);
+      } catch (error) {
+        console.error('Error loading paper:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPaper();
+  }, [arxivId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-dark-bg flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-dark-text mb-4">Loading...</h1>
+        </div>
+      </div>
+    );
+  }
 
   if (!paper) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-dark-bg flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Paper Not Found</h1>
-          <Link to="/" className="text-blue-600 hover:text-blue-800">← Back to Home</Link>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-dark-text mb-4">Paper Not Found</h1>
+          <Link to="/" className="text-blue-600 hover:text-blue-800 dark:text-dark-primary dark:hover:text-dark-primary-hover">← Back to Home</Link>
         </div>
       </div>
     );

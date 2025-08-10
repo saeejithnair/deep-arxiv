@@ -41,12 +41,12 @@ export class PaperService {
         title: row.title,
         authors: Array.isArray(row.authors) ? row.authors : [],
         abstract: row.abstract || '',
-        category: row.category || 'Computer Science',
-        publishedDate: row.published_date || 'Unknown',
-        views: row.views || '0',
-        citations: row.citations || '0',
-        field: row.field || 'Computer Science',
-        methodology: row.methodology || '',
+        category: 'Computer Science', // Default value
+        publishedDate: 'Unknown', // Default value
+        views: '0', // Default value
+        citations: '0', // Default value
+        field: 'Computer Science', // Default value
+        methodology: '', // Default value
         wikiContent: row.wiki_content || null
       }));
     } catch (error) {
@@ -77,12 +77,12 @@ export class PaperService {
         title: data.title,
         authors: Array.isArray(data.authors) ? data.authors : [],
         abstract: data.abstract || '',
-        category: data.category || 'Computer Science',
-        publishedDate: data.published_date || 'Unknown',
-        views: data.views || '0',
-        citations: data.citations || '0',
-        field: data.field || 'Computer Science',
-        methodology: data.methodology || '',
+        category: 'Computer Science', // Default value
+        publishedDate: 'Unknown', // Default value
+        views: '0', // Default value
+        citations: '0', // Default value
+        field: 'Computer Science', // Default value
+        methodology: '', // Default value
         wikiContent: data.wiki_content || null
       };
     } catch (error) {
@@ -110,7 +110,7 @@ export class PaperService {
       // Generate wiki content using AI (simplified for now)
       const wikiContent = await this.generateWikiContent(paperData);
 
-      // Insert into database
+      // Insert into database (using only existing columns)
       const { data, error } = await supabase
         .from('papers')
         .insert({
@@ -118,12 +118,6 @@ export class PaperService {
           title: paperData.title,
           authors: paperData.authors,
           abstract: paperData.abstract,
-          category: paperData.category,
-          published_date: paperData.publishedDate,
-          views: paperData.views,
-          citations: paperData.citations,
-          field: paperData.field,
-          methodology: paperData.methodology,
           wiki_content: wikiContent
         })
         .select()
@@ -140,12 +134,12 @@ export class PaperService {
         title: data.title,
         authors: Array.isArray(data.authors) ? data.authors : [],
         abstract: data.abstract || '',
-        category: data.category || 'Computer Science',
-        publishedDate: data.published_date || 'Unknown',
-        views: data.views || '0',
-        citations: data.citations || '0',
-        field: data.field || 'Computer Science',
-        methodology: data.methodology || '',
+        category: 'Computer Science', // Default value
+        publishedDate: 'Unknown', // Default value
+        views: '0', // Default value
+        citations: '0', // Default value
+        field: 'Computer Science', // Default value
+        methodology: '', // Default value
         wikiContent: data.wiki_content || null
       };
     } catch (error) {
@@ -161,22 +155,27 @@ export class PaperService {
       const response = await fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`);
       const xmlText = await response.text();
       
-      // Parse XML response (simplified parsing)
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+      // Parse XML response using regex (works in both browser and Node.js)
+      const titleMatch = xmlText.match(/<title[^>]*>([^<]+)<\/title>/);
+      const summaryMatch = xmlText.match(/<summary[^>]*>([^<]+)<\/summary>/);
+      const publishedMatch = xmlText.match(/<published[^>]*>([^<]+)<\/published>/);
+      const categoryMatch = xmlText.match(/<category[^>]*term="([^"]+)"/);
       
-      const entry = xmlDoc.querySelector('entry');
-      if (!entry) return null;
+      // Extract authors using regex
+      const authorMatches = xmlText.match(/<name[^>]*>([^<]+)<\/name>/g);
+      const authors = authorMatches 
+        ? authorMatches.map(match => match.replace(/<name[^>]*>([^<]+)<\/name>/, '$1').trim())
+        : [];
 
-      const title = entry.querySelector('title')?.textContent?.replace(/\s+/g, ' ').trim() || '';
-      const summary = entry.querySelector('summary')?.textContent?.replace(/\s+/g, ' ').trim() || '';
-      const published = entry.querySelector('published')?.textContent || '';
-      const authors = Array.from(entry.querySelectorAll('author name')).map(author => 
-        author.textContent?.trim() || ''
-      ).filter(name => name);
+      if (!titleMatch) {
+        console.error('Could not parse title from arXiv response');
+        return null;
+      }
 
-      // Extract category from arXiv ID or primary category
-      const category = entry.querySelector('category')?.getAttribute('term') || 'Computer Science';
+      const title = titleMatch[1].replace(/\s+/g, ' ').trim();
+      const summary = summaryMatch ? summaryMatch[1].replace(/\s+/g, ' ').trim() : '';
+      const published = publishedMatch ? publishedMatch[1] : '';
+      const category = categoryMatch ? categoryMatch[1] : 'Computer Science';
       
       return {
         arxiv_id: arxivId,
@@ -184,7 +183,7 @@ export class PaperService {
         authors,
         abstract: summary,
         category,
-        publishedDate: new Date(published).toLocaleDateString(),
+        publishedDate: published ? new Date(published).toLocaleDateString() : 'Unknown',
         views: Math.floor(Math.random() * 1000000).toLocaleString(),
         citations: Math.floor(Math.random() * 10000).toLocaleString(),
         field: category,
@@ -255,12 +254,12 @@ export class PaperService {
         title: row.title,
         authors: Array.isArray(row.authors) ? row.authors : [],
         abstract: row.abstract || '',
-        category: row.category || 'Computer Science',
-        publishedDate: row.published_date || 'Unknown',
-        views: row.views || '0',
-        citations: row.citations || '0',
-        field: row.field || 'Computer Science',
-        methodology: row.methodology || '',
+        category: 'Computer Science', // Default value
+        publishedDate: 'Unknown', // Default value
+        views: '0', // Default value
+        citations: '0', // Default value
+        field: 'Computer Science', // Default value
+        methodology: '', // Default value
         wikiContent: row.wiki_content || null
       }));
     } catch (error) {
