@@ -1,0 +1,46 @@
+######## wrangler.toml ###########################################
+# Root‑level config for the “deep-arxiv” Worker
+##################################################################
+
+name              = "deep-arxiv"
+main              = "./worker/src/worker.ts"   # adjust if your entry lives elsewhere
+compatibility_date = "2025-07-19"
+
+#############
+# Static assets
+#############
+# Wrangler uploads every file inside `./frontend/dist`
+# and makes them available to the Worker as `env.ASSETS`.
+assets = { directory = "./frontend/dist" }
+
+##############################
+# Custom Domains
+##############################
+# These bind your Worker to the custom domains.
+# Deploy with `wrangler deploy` to apply/sync.
+[[routes]]
+pattern = "deep-arxiv.ai"
+custom_domain = true
+
+[[routes]]
+pattern = "www.deep-arxiv.ai"
+custom_domain = true
+
+###################################
+# (Optional) storage & queue bindings
+###################################
+# Add these sections **after** you create the resources with
+# `wrangler kv:namespace create`, `wrangler r2 bucket create`, etc.
+
+# [[kv_namespaces]]
+# binding = "SUMMARIES"
+# id      = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# [[queues.producer]]
+# binding = "SCRAPE_QUEUE"
+# queue   = "arxiv‑jobs"
+
+# [[r2_buckets]]
+# binding     = "PDFS"
+# bucket_name = "deep-arxiv‑pdfs"
+##################################################################

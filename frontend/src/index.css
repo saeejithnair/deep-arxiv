@@ -1,0 +1,453 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background-color: #f8f9fa;
+  color: #1f2937;
+}
+
+:root {
+  --background: #f8f9fa;
+  --foreground: #1f2937;
+  --card: #ffffff;
+  --card-foreground: #1f2937;
+  --popover: #ffffff;
+  --popover-foreground: #1f2937;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #374151;
+  --muted: #f9fafb;
+  --muted-foreground: #6b7280;
+  --accent: #f3f4f6;
+  --accent-foreground: #374151;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #ffffff;
+  --ring: #4f46e5;
+  --radius: 0.375rem;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #334155;
+  --secondary-foreground: #f1f5f9;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #334155;
+  --accent-foreground: #f1f5f9;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #334155;
+  --input: #1e293b;
+  --ring: #6366f1;
+}
+
+.deep-arxiv-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.deep-arxiv-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: none;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+.deep-arxiv-card:hover {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
+}
+
+.deep-arxiv-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.deep-arxiv-sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+}
+
+.deep-arxiv-search {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.deep-arxiv-search:focus-within {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 1px #4f46e5;
+}
+
+.deep-arxiv-nav-item {
+  color: #6b7280;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.deep-arxiv-nav-item:hover {
+  background-color: #f9fafb;
+  color: #374151;
+}
+
+.deep-arxiv-nav-item.active {
+  background-color: #eff6ff;
+  color: #4f46e5;
+  border-right: 2px solid #4f46e5;
+}
+
+.deep-arxiv-button-primary {
+  background: #4f46e5;
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 14px;
+  border: none;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deep-arxiv-button-primary:hover {
+  background: #4338ca;
+}
+
+.deep-arxiv-button-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.deep-arxiv-button-secondary:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.deep-arxiv-text-primary {
+  color: #111827;
+}
+
+.deep-arxiv-text-secondary {
+  color: #6b7280;
+}
+
+.deep-arxiv-text-muted {
+  color: #9ca3af;
+}
+
+.deep-arxiv-link {
+  color: #4f46e5;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.deep-arxiv-link:hover {
+  color: #4338ca;
+}
+
+.paper-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 16px;
+  transition: all 0.2s ease-in-out;
+  position: relative;
+  cursor: pointer;
+}
+
+.paper-card:hover {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
+}
+
+.paper-card-title {
+  color: #1f2937;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  text-decoration: none;
+}
+
+.paper-card-title:hover {
+  color: #4f46e5;
+}
+
+.paper-card-authors {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.paper-card-description {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.paper-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.paper-card-arrow {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #d1d5db;
+  transition: all 0.2s ease;
+}
+
+.paper-card:hover .paper-card-arrow {
+  color: #9ca3af;
+  transform: translateY(-50%) translateX(2px);
+}
+
+/* Custom line-clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.deep-arxiv-main-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 0;
+}
+
+.deep-arxiv-brand {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+  text-decoration: none;
+}
+
+.deep-arxiv-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.deep-arxiv-header-text {
+  color: #6b7280;
+}
+
+/* Search section styling */
+.deep-arxiv-search-section {
+  text-align: center;
+  padding: 48px 0;
+}
+
+.deep-arxiv-main-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 32px;
+}
+
+.deep-arxiv-search-container {
+  max-width: 600px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.deep-arxiv-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 44px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 16px;
+  color: #1f2937;
+  background: #ffffff;
+  transition: all 0.15s ease;
+}
+
+.deep-arxiv-search-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 1px #4f46e5;
+}
+
+.deep-arxiv-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.deep-arxiv-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+}
+
+/* PDF Viewer Styles */
+.react-pdf__Page {
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.react-pdf__Page__textContent {
+  border: none !important;
+}
+
+.react-pdf__Page__annotations {
+  border: none !important;
+}
+
+.pdf-container {
+  background: #f9fafb;
+}
+
+.pdf-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pdf-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.pdf-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.pdf-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Typography improvements */
+h1, h2, h3, h4, h5, h6 {
+  color: #111827;
+  font-weight: 600;
+}
+
+.prose {
+  color: #374151;
+  line-height: 1.7;
+}
+
+.prose h2 {
+  color: #111827;
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.prose h3 {
+  color: #111827;
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose p {
+  margin-bottom: 1rem;
+  color: #374151;
+}
+
+.prose strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.prose code {
+  background: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  color: #374151;
+}
+
+/* Dark mode toggle */
+.dark-mode-toggle {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #6b7280;
+  transition: color 0.15s ease;
+}
+
+.dark-mode-toggle:hover {
+  color: #374151;
+}
+
+/* Add repo card styling */
+.add-paper-card {
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  padding: 32px 16px;
+  text-align: center;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.add-paper-card:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.add-paper-card-icon {
+  width: 24px;
+  height: 24px;
+  color: #9ca3af;
+  margin: 0 auto 12px;
+  transition: color 0.2s ease;
+}
+
+.add-paper-card:hover .add-paper-card-icon {
+  color: #6b7280;
+}
+
+.add-paper-card-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.add-paper-card-description {
+  font-size: 14px;
+  color: #6b7280;
+}
