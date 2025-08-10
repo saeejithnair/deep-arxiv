@@ -39,8 +39,15 @@ const LightModeIcon = () => (
 );
 
 const PapiersIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 9 5.16-.74 9-4.45 9-10V7l-10-5z"/>
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M6 2h7l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"
+      fill="white"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+    <path d="M13 2v5h5" fill="white" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
   </svg>
 );
 
@@ -256,6 +263,7 @@ const getTableOfContents = (content: string) => {
 
 const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section }) => {
   const { theme, toggleTheme } = useTheme();
+  const [copied, setCopied] = useState(false);
   const [activeSection, setActiveSection] = useState(section || 'overview');
   const sections = getPaperSections(paper);
   const currentSection = sections.find(s => s.id === activeSection) || sections[0];
@@ -316,18 +324,34 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
       <header className="deep-arxiv-main-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <Link to="/" className="deep-arxiv-brand text-arxiv-repository-brown hover:text-arxiv-archival-blue transition-colors dark:text-dark-text dark:hover:text-dark-primary">Deep-Arxiv</Link>
+            <Link to="/" className="deep-arxiv-brand text-black hover:text-arxiv-archival-blue transition-colors dark:text-white dark:hover:text-dark-primary">Deep-arXiv</Link>
 
-            <div className="deep-arxiv-header-right">
-              <span className="deep-arxiv-header-text text-arxiv-library-grey dark:text-dark-text-secondary">Get free private Deep-Arxiv with</span>
+              <div className="deep-arxiv-header-right">
+               <span className="deep-arxiv-header-text text-arxiv-library-grey dark:text-dark-text-secondary">Get free private Deep-arXiv with</span>
               <div className="flex items-center gap-1">
-                <PapiersIcon className="text-arxiv-cornell-red" />
-                <span className="deep-arxiv-link font-medium text-arxiv-link-blue hover:text-arxiv-archival-blue dark:text-dark-primary dark:hover:text-dark-primary-hover">Deep-Arxiv</span>
+                  <PapiersIcon className="text-arxiv-cornell-red" />
+                 <span className="font-medium text-black dark:text-white">Deep-arXiv</span>
               </div>
-              <button className="deep-arxiv-button-primary bg-arxiv-archival-blue hover:bg-arxiv-link-blue text-white dark:bg-dark-primary dark:hover:bg-dark-primary-hover">
-                <ShareIcon />
-                Share
-              </button>
+               <button 
+                 onClick={async () => {
+                   try {
+                     await navigator.clipboard.writeText(window.location.href);
+                   } catch {
+                     const t = document.createElement('textarea');
+                     t.value = window.location.href;
+                     document.body.appendChild(t);
+                     t.select();
+                     document.execCommand('copy');
+                     document.body.removeChild(t);
+                   }
+                   setCopied(true);
+                   setTimeout(() => setCopied(false), 1500);
+                 }}
+                 className="px-3 py-1 rounded-md border border-arxiv-library-grey text-black hover:bg-arxiv-warm-wash dark:text-white dark:border-dark-border dark:hover:bg-dark-secondary bg-transparent"
+               >
+                 <ShareIcon />
+                 {copied ? 'Copied' : 'Share'}
+               </button>
               <button 
                 onClick={toggleTheme}
                 className="dark-mode-toggle text-arxiv-library-grey hover:text-arxiv-repository-brown transition-colors dark:text-dark-text-secondary dark:hover:text-dark-text"
@@ -385,15 +409,15 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
               <PDFViewer arxivId={paper.arxivId} title={paper.title} />
             ) : (
               /* Analysis Content */
-              <div className="bg-white dark:bg-dark-card">
-                <h1 className="text-2xl font-semibold text-arxiv-repository-brown mb-6 dark:text-dark-text">
+              <div className="bg-white dark:bg-dark-card rounded-xl border border-arxiv-library-grey dark:border-dark-border p-6 shadow-sm">
+                <h1 className="text-2xl font-semibold text-arxiv-repository-brown dark:text-dark-text mb-6">
                   {currentSection.title}
                 </h1>
 
                 {/* Relevant Sections */}
                 {currentSection.relevantSections && currentSection.relevantSections.length > 0 && (
-                  <div className="mb-6 p-4 bg-arxiv-cool-wash rounded-lg border border-arxiv-library-grey dark:bg-dark-secondary dark:border-dark-border">
-                    <h4 className="font-medium text-arxiv-archival-blue mb-3 dark:text-dark-primary">Relevant paper sections</h4>
+                  <div className="mb-6 p-5 bg-arxiv-cool-wash dark:bg-dark-secondary rounded-lg border border-arxiv-library-grey dark:border-dark-border">
+                    <h4 className="font-medium text-arxiv-archival-blue dark:text-dark-primary mb-3">Relevant paper sections</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {currentSection.relevantSections.map((section) => (
                         <a
@@ -401,7 +425,7 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
                           href={`https://arxiv.org/abs/${paper.arxivId}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-arxiv-link-blue hover:text-arxiv-archival-blue text-sm capitalize hover:underline dark:text-dark-primary dark:hover:text-dark-primary-hover"
+                          className="text-arxiv-link-blue hover:text-arxiv-archival-blue text-sm capitalize hover:underline"
                         >
                           {section.replace('-', ' ')}
                         </a>
@@ -411,7 +435,7 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
                 )}
 
                 {/* Main Content */}
-                <div className="prose max-w-none">
+                <div className="prose max-w-none text-arxiv-repository-brown dark:text-dark-text">
                   <div
                     // biome-ignore lint/security/noDangerouslySetInnerHtml: Content is trusted and formatted internally
                     dangerouslySetInnerHTML={{
@@ -423,7 +447,7 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
                 {/* Refresh Analysis */}
                 <div className="mt-8 pt-6 border-t border-arxiv-library-grey dark:border-dark-border">
                   <div className="flex items-center justify-between">
-                    <button className="text-arxiv-link-blue hover:text-arxiv-archival-blue text-sm font-medium dark:text-dark-primary dark:hover:text-dark-primary-hover">
+                    <button className="text-arxiv-link-blue hover:text-arxiv-archival-blue text-sm font-medium">
                       Refresh this analysis
                     </button>
                     <div className="text-xs text-arxiv-library-grey dark:text-dark-text-muted">
