@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/data.ts","./src/main.tsx","./src/supabaseclient.ts","./src/types.ts","./src/vite-env.d.ts","./src/components/pdfviewer.tsx","./src/components/paperanalysispage.tsx","./vite.config.ts"],"version":"5.6.3"}
+{"root":["./src/app.tsx","./src/data.ts","./src/main.tsx","./src/supabaseclient.ts","./src/types.ts","./src/vite-env.d.ts","./src/components/pdfviewer.tsx","./src/components/paperanalysispage.tsx","./src/services/paperservice.ts","./vite.config.ts"],"version":"5.6.3"}

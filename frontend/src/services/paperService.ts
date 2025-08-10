@@ -58,10 +58,11 @@ export class PaperService {
   // Get a single paper by arXiv ID
   static async getPaperByArxivId(arxivId: string): Promise<Paper | null> {
     try {
+      const normalizedId = this.normalizeArxivId(arxivId);
       const { data, error } = await supabase
         .from('papers')
         .select('*')
-        .eq('arxiv_id', arxivId)
+        .eq('arxiv_id', normalizedId)
         .single();
 
       if (error) {
@@ -94,15 +95,16 @@ export class PaperService {
   // Index a new paper (fetch from arXiv and store in database)
   static async indexPaper(arxivId: string): Promise<Paper | null> {
     try {
+      const normalizedId = this.normalizeArxivId(arxivId);
       // First check if paper already exists
-      const existingPaper = await this.getPaperByArxivId(arxivId);
+      const existingPaper = await this.getPaperByArxivId(normalizedId);
       if (existingPaper) {
-        console.log('Paper already exists:', arxivId);
+        console.log('Paper already exists:', normalizedId);
         return existingPaper;
       }
 
       // Fetch paper metadata from arXiv API
-      const paperData = await this.fetchArxivMetadata(arxivId);
+      const paperData = await this.fetchArxivMetadata(normalizedId);
       if (!paperData) {
         throw new Error('Failed to fetch paper metadata from arXiv');
       }
@@ -114,7 +116,7 @@ export class PaperService {
       const { data, error } = await supabase
         .from('papers')
         .insert({
-          arxiv_id: arxivId,
+          arxiv_id: normalizedId,
           title: paperData.title,
           authors: paperData.authors,
           abstract: paperData.abstract,
@@ -155,20 +157,58 @@ export class PaperService {
       const response = await fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`);
       const xmlText = await response.text();
       
-      // Parse XML response using regex (works in both browser and Node.js)
-      const titleMatch = xmlText.match(/<title[^>]*>([^<]+)<\/title>/);
-      const summaryMatch = xmlText.match(/<summary[^>]*>([^<]+)<\/summary>/);
-      const publishedMatch = xmlText.match(/<published[^>]*>([^<]+)<\/published>/);
-      const categoryMatch = xmlText.match(/<category[^>]*term="([^"]+)"/);
-      
-      // Extract authors using regex
-      const authorMatches = xmlText.match(/<name[^>]*>([^<]+)<\/name>/g);
-      const authors = authorMatches 
-        ? authorMatches.map(match => match.replace(/<name[^>]*>([^<]+)<\/name>/, '$1').trim())
-        : [];
+      // Prefer DOM parsing in the browser to avoid picking feed-level <title>
+      if (typeof window !== 'undefined' && typeof DOMParser !== 'undefined') {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        const entry = xmlDoc.querySelector('entry');
+        if (!entry) {
+          console.error('No <entry> found in arXiv response');
+          return null;
+        }
+        const title = (entry.querySelector('title')?.textContent || '').replace(/\s+/g, ' ').trim();
+        const summary = (entry.querySelector('summary')?.textContent || '').replace(/\s+/g, ' ').trim();
+        const published = entry.querySelector('published')?.textContent || '';
+        const category = entry.querySelector('category')?.getAttribute('term') || 'Computer Science';
+        const authors = Array.from(entry.querySelectorAll('author > name'))
+          .map(n => (n.textContent || '').trim())
+          .filter(Boolean);
+
+        if (!title) {
+          console.error('Could not parse title from arXiv entry');
+          return null;
+        }
+
+        return {
+          arxiv_id: arxivId,
+          title,
+          authors,
+          abstract: summary,
+          category,
+          publishedDate: published ? new Date(published).toLocaleDateString() : 'Unknown',
+          views: Math.floor(Math.random() * 1000000).toLocaleString(),
+          citations: Math.floor(Math.random() * 10000).toLocaleString(),
+          field: category,
+          methodology: ''
+        };
+      }
+
+      // Fallback: robust regex scoped to the first <entry>
+      const entryMatch = xmlText.match(/<entry[\s\S]*?>([\s\S]*?)<\/entry>/i);
+      if (!entryMatch) {
+        console.error('No <entry> found in arXiv response');
+        return null;
+      }
+      const entryXml = entryMatch[1];
+      const titleMatch = entryXml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      const summaryMatch = entryXml.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
+      const publishedMatch = entryXml.match(/<published[^>]*>([^<]+)<\/published>/i);
+      const categoryMatch = entryXml.match(/<category[^>]*term="([^"]+)"/i);
+      const authorMatches = entryXml.match(/<author[\s\S]*?>[\s\S]*?<name[^>]*>([^<]+)<\/name>[\s\S]*?<\/author>/gi) || [];
+      const authors = authorMatches.map(m => (m.match(/<name[^>]*>([^<]+)<\/name>/i)?.[1] || '').trim()).filter(Boolean);
 
       if (!titleMatch) {
-        console.error('Could not parse title from arXiv response');
+        console.error('Could not parse title from arXiv entry');
         return null;
       }
 
@@ -176,7 +216,7 @@ export class PaperService {
       const summary = summaryMatch ? summaryMatch[1].replace(/\s+/g, ' ').trim() : '';
       const published = publishedMatch ? publishedMatch[1] : '';
       const category = categoryMatch ? categoryMatch[1] : 'Computer Science';
-      
+
       return {
         arxiv_id: arxivId,
         title,
@@ -271,10 +311,11 @@ export class PaperService {
   // Update paper wiki content
   static async updateWikiContent(arxivId: string, wikiContent: any): Promise<boolean> {
     try {
+      const normalizedId = this.normalizeArxivId(arxivId);
       const { error } = await supabase
         .from('papers')
         .update({ wiki_content: wikiContent })
-        .eq('arxiv_id', arxivId);
+        .eq('arxiv_id', normalizedId);
 
       if (error) {
         console.error('Error updating wiki content:', error);
@@ -286,5 +327,32 @@ export class PaperService {
       console.error('Error in updateWikiContent:', error);
       return false;
     }
+  }
+
+  // Normalize various arXiv ID inputs into canonical id_list form
+  private static normalizeArxivId(input: string): string {
+    let id = input.trim();
+    // Extract from common URL forms
+    try {
+      if (id.startsWith('http')) {
+        const url = new URL(id);
+        // /abs/<id>[vN] or /pdf/<id>[vN].pdf
+        const parts = url.pathname.split('/').filter(Boolean);
+        const idx = parts.findIndex(p => p === 'abs' || p === 'pdf');
+        if (idx >= 0 && parts[idx + 1]) {
+          id = parts[idx + 1].replace(/\.pdf$/i, '');
+        }
+      }
+    } catch {
+      // ignore URL parse errors
+    }
+    // Remove arXiv: prefix
+    id = id.replace(/^arxiv:/i, '');
+    // Trim trailing .pdf just in case
+    id = id.replace(/\.pdf$/i, '');
+    // Drop version suffix (e.g., v1, v2)
+    id = id.replace(/v\d+$/i, '');
+    // Final sanity trim
+    return id;
   }
 }

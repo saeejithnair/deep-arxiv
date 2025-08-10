@@ -340,6 +340,7 @@ const ChatInterface: React.FC<{ isOpen: boolean; onClose: () => void; paperConte
 };
 
 const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPaperAdded }) => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [arxivId, setArxivId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -358,6 +359,8 @@ const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPa
         onPaperAdded(paper);
         setIsModalOpen(false);
         setArxivId('');
+        // Navigate directly to the paper wiki page
+        navigate(`/${paper.arxivId}`);
       } else {
         setError('Failed to index paper. Please check the arXiv ID and try again.');
       }
