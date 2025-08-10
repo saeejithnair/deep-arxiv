@@ -10,6 +10,32 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
+        // arXiv-inspired custom colors
+        arxiv: {
+          'library-grey': '#6b6459',
+          'cornell-red': '#b31b1b',
+          'publishing-pink': '#fb595a',
+          'warm-wash': '#f9f7f7',
+          'archival-blue': '#1f5e96',
+          'open-blue': '#a5d6fe',
+          'cool-wash': '#f7fafc',
+          'access-lime': '#c4d82e',
+          'link-blue': '#1e8bc3',
+          'repository-brown': '#1c1817',
+        },
+        // DeepWiki-style dark mode colors
+        dark: {
+          'bg': '#0a0a0a',
+          'card': '#1a1a1a',
+          'secondary': '#262626',
+          'border': '#404040',
+          'border-hover': '#525252',
+          'text': '#ffffff',
+          'text-secondary': '#9ca3af',
+          'text-muted': '#6b7280',
+          'primary': '#3b82f6',
+          'primary-hover': '#2563eb',
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, createContext, useContext, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import type { Paper, User, ChatMessage, SearchFilters } from './types';
 import { papers, categories } from './data';
@@ -8,15 +8,63 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from './supabaseClient';
 
+// Theme Context
+type Theme = 'light' | 'dark';
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
+
+const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Check localStorage first, then system preference
+    const savedTheme = localStorage.getItem('theme') as Theme;
+    if (savedTheme) return savedTheme;
+    
+    // Check system preference
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    // Update document class and localStorage
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+
 // Icons
-const ViewIcon = () => (
-  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+const ViewIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
     <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
   </svg>
 );
 
-const CitationIcon = () => (
-  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+const CitationIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
   </svg>
 );
@@ -63,14 +111,20 @@ const ShareIcon = () => (
   </svg>
 );
 
-const DarkModeIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+const DarkModeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
   </svg>
 );
 
-const PapiersIcon = () => (
-  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+const LightModeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const PapiersIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
     <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
   </svg>
 );
@@ -98,10 +152,10 @@ const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void; onLogin: (user
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+      <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 border border-arxiv-library-grey">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">{isLogin ? 'Sign In' : 'Sign Up'}</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <h2 className="text-2xl font-bold text-arxiv-repository-brown">{isLogin ? 'Sign In' : 'Sign Up'}</h2>
+          <button onClick={onClose} className="text-arxiv-library-grey hover:text-arxiv-repository-brown">
             <CloseIcon />
           </button>
         </div>
@@ -109,42 +163,42 @@ const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void; onLogin: (user
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label className="block text-sm font-medium text-arxiv-library-grey mb-1">Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue text-arxiv-repository-brown placeholder-arxiv-library-grey"
                 required={!isLogin}
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-arxiv-library-grey mb-1">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue text-arxiv-repository-brown placeholder-arxiv-library-grey"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-arxiv-library-grey mb-1">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue text-arxiv-repository-brown placeholder-arxiv-library-grey"
               required
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+            className="w-full bg-arxiv-archival-blue text-white py-2 px-4 rounded-md hover:bg-arxiv-link-blue transition-colors"
           >
             {isLogin ? 'Sign In' : 'Sign Up'}
           </button>
@@ -153,7 +207,7 @@ const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void; onLogin: (user
         <div className="mt-4 text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-600 hover:text-blue-800"
+            className="text-arxiv-link-blue hover:text-arxiv-archival-blue"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
@@ -231,17 +285,17 @@ const ChatInterface: React.FC<{ isOpen: boolean; onClose: () => void; paperConte
   };
 
   return (
-    <div className="fixed bottom-4 right-4 w-96 h-[500px] bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col z-50">
-      <div className="flex justify-between items-center p-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold">
+    <div className="fixed bottom-4 right-4 w-96 h-[500px] bg-white rounded-lg shadow-xl border border-arxiv-library-grey flex flex-col z-50 dark:bg-dark-card dark:border-dark-border">
+      <div className="flex justify-between items-center p-4 border-b border-arxiv-library-grey bg-arxiv-cool-wash dark:bg-dark-secondary dark:border-dark-border">
+        <h3 className="text-lg font-semibold text-arxiv-repository-brown dark:text-dark-text">
           {paperContext ? `${paperContext.arxivId}` : 'Deep-Arxiv AI'}
         </h3>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+        <button onClick={onClose} className="text-arxiv-library-grey hover:text-arxiv-repository-brown dark:text-dark-text-secondary dark:hover:text-dark-text">
           <CloseIcon />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-arxiv-warm-wash dark:bg-dark-bg">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -250,8 +304,8 @@ const ChatInterface: React.FC<{ isOpen: boolean; onClose: () => void; paperConte
             <div
               className={`max-w-[80%] p-3 rounded-lg ${
                 message.sender === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-900'
+                  ? 'bg-arxiv-archival-blue text-white dark:bg-dark-primary'
+                  : 'bg-white text-arxiv-repository-brown border border-arxiv-library-grey dark:bg-dark-card dark:text-dark-text dark:border-dark-border'
               }`}
             >
               <p className="text-sm">{message.content}</p>
@@ -263,18 +317,18 @@ const ChatInterface: React.FC<{ isOpen: boolean; onClose: () => void; paperConte
         ))}
       </div>
 
-      <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
+      <form onSubmit={handleSendMessage} className="p-4 border-t border-arxiv-library-grey bg-white dark:bg-dark-card dark:border-dark-border">
         <div className="flex gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Ask about this paper..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue text-arxiv-repository-brown placeholder-arxiv-library-grey dark:bg-dark-secondary dark:border-dark-border dark:focus:ring-dark-primary dark:text-dark-text dark:placeholder-dark-text-muted"
           />
           <button
             type="submit"
-            className="bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition-colors"
+            className="bg-arxiv-archival-blue text-white p-2 rounded-md hover:bg-arxiv-link-blue transition-colors dark:bg-dark-primary dark:hover:bg-dark-primary-hover"
           >
             <SendIcon />
           </button>
@@ -290,38 +344,38 @@ const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => 
 
   return (
     <>
-      <div className="paper-card" onClick={() => navigate(`/${paper.arxivId}`)}>
+      <div className="paper-card bg-white border-arxiv-library-grey hover:border-arxiv-archival-blue dark:bg-dark-card dark:border-dark-border dark:hover:border-dark-primary" onClick={() => navigate(`/${paper.arxivId}`)}>
         <Link
           to={`/${paper.arxivId}`}
-          className="paper-card-title"
+          className="paper-card-title text-arxiv-repository-brown hover:text-arxiv-archival-blue dark:text-dark-text dark:hover:text-dark-primary"
         >
           {paper.title}
         </Link>
 
-        <div className="paper-card-authors">
+        <div className="paper-card-authors text-arxiv-library-grey dark:text-dark-text-secondary">
           {paper.authors.slice(0, 2).join(', ')}{paper.authors.length > 2 ? ' et al.' : ''}
         </div>
 
         {paper.abstract && (
-          <div className="paper-card-description">
+          <div className="paper-card-description text-arxiv-library-grey dark:text-dark-text-secondary">
             {paper.abstract}
           </div>
         )}
 
-        <div className="paper-card-stats">
+        <div className="paper-card-stats text-arxiv-library-grey dark:text-dark-text-muted">
           <div className="flex items-center gap-1">
-            <ViewIcon />
+            <ViewIcon className="text-arxiv-library-grey dark:text-dark-text-muted" />
             <span>{paper.views}</span>
           </div>
           {paper.citations && (
             <div className="flex items-center gap-1">
-              <CitationIcon />
+              <CitationIcon className="text-arxiv-library-grey dark:text-dark-text-muted" />
               <span>{paper.citations}</span>
             </div>
           )}
         </div>
 
-        <div className="paper-card-arrow">
+        <div className="paper-card-arrow text-arxiv-library-grey group-hover:text-arxiv-archival-blue dark:text-dark-text-muted dark:group-hover:text-dark-primary">
           <ArrowRightIcon />
         </div>
       </div>
@@ -336,6 +390,7 @@ const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => 
 };
 
 const HomePage: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -401,20 +456,26 @@ const HomePage: React.FC = () => {
         <header className="deep-arxiv-main-header">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
-              <Link to="/" className="deep-arxiv-brand">Deep-Arxiv</Link>
+              <Link to="/" className="deep-arxiv-brand text-arxiv-repository-brown hover:text-arxiv-archival-blue transition-colors">
+                Deep-Arxiv
+              </Link>
 
               <div className="deep-arxiv-header-right">
-                <span className="deep-arxiv-header-text">Get unlimited papers with</span>
+                <span className="deep-arxiv-header-text text-arxiv-library-grey">Get unlimited papers with</span>
                 <div className="flex items-center gap-1">
-                  <PapiersIcon />
-                  <span className="deep-arxiv-link font-medium">Deep-Arxiv</span>
+                  <PapiersIcon className="text-arxiv-cornell-red" />
+                  <span className="deep-arxiv-link font-medium text-arxiv-link-blue hover:text-arxiv-archival-blue">Deep-Arxiv</span>
                 </div>
-                <button className="deep-arxiv-button-primary">
+                <button className="deep-arxiv-button-primary bg-arxiv-archival-blue hover:bg-arxiv-link-blue text-white">
                   <ShareIcon />
                   Share
                 </button>
-                <button className="dark-mode-toggle">
-                  <DarkModeIcon />
+                <button 
+                  onClick={toggleTheme}
+                  className="dark-mode-toggle text-arxiv-library-grey hover:text-arxiv-repository-brown transition-colors"
+                  title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                >
+                  {theme === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
                 </button>
               </div>
             </div>
@@ -423,39 +484,39 @@ const HomePage: React.FC = () => {
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Search Section */}
-          <div className="deep-arxiv-search-section">
-            <h1 className="deep-arxiv-main-title">
-              Which paper would you like to understand?
-            </h1>
+                  {/* Search Section */}
+        <div className="deep-arxiv-search-section bg-arxiv-cool-wash dark:bg-dark-bg py-16">
+          <h1 className="deep-arxiv-main-title text-arxiv-repository-brown dark:text-dark-text">
+            Which paper would you like to understand?
+          </h1>
 
-            <div className="deep-arxiv-search-container">
-              <div className="relative">
-                <div className="deep-arxiv-search-icon">
-                  <SearchIcon />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search for papers (or paste a link)"
-                  value={filters.query}
-                  onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))}
-                  className="deep-arxiv-search-input"
-                />
+          <div className="deep-arxiv-search-container">
+            <div className="relative">
+              <div className="deep-arxiv-search-icon text-arxiv-library-grey dark:text-dark-text-muted">
+                <SearchIcon />
               </div>
+              <input
+                type="text"
+                placeholder="Search for papers (or paste a link)"
+                value={filters.query}
+                onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))}
+                className="deep-arxiv-search-input border-arxiv-library-grey focus:border-arxiv-archival-blue focus:ring-arxiv-archival-blue text-arxiv-repository-brown placeholder-arxiv-library-grey dark:bg-dark-card dark:border-dark-border dark:focus:border-dark-primary dark:focus:ring-dark-primary dark:text-dark-text dark:placeholder-dark-text-muted"
+              />
             </div>
           </div>
+        </div>
 
           {/* Papers Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-16">
             {/* Add Paper Card */}
-            <div className="add-paper-card">
-              <div className="add-paper-card-icon">
+            <div className="add-paper-card bg-arxiv-warm-wash border-dashed border-arxiv-library-grey hover:bg-arxiv-cool-wash hover:border-arxiv-archival-blue dark:bg-dark-secondary dark:border-dashed dark:border-dark-border dark:hover:bg-dark-card dark:hover:border-dark-primary">
+              <div className="add-paper-card-icon text-arxiv-library-grey group-hover:text-arxiv-archival-blue dark:text-dark-text-muted dark:group-hover:text-dark-primary">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
               </div>
-              <div className="add-paper-card-title">Add paper</div>
-              <div className="add-paper-card-description">Analyze any research paper</div>
+              <div className="add-paper-card-title text-arxiv-repository-brown dark:text-dark-text">Add paper</div>
+              <div className="add-paper-card-description text-arxiv-library-grey dark:text-dark-text-secondary">Analyze any research paper</div>
             </div>
 
             {filteredPapers.map((paper) => (
@@ -474,7 +535,7 @@ const HomePage: React.FC = () => {
         {!isChatOpen && (
           <button
             onClick={() => setIsChatOpen(true)}
-            className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors z-40"
+            className="fixed bottom-6 right-6 bg-arxiv-archival-blue text-white p-4 rounded-full shadow-lg hover:bg-arxiv-link-blue dark:bg-dark-primary dark:hover:bg-dark-primary-hover transition-colors z-40"
           >
             <ChatIcon />
           </button>
@@ -500,11 +561,13 @@ const HomePage: React.FC = () => {
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/:arxivId" element={<PaperAnalysisWrapper />} />
-        <Route path="/:arxivId/:section" element={<PaperAnalysisWrapper />} />
-      </Routes>
+      <ThemeProvider>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/:arxivId" element={<PaperAnalysisWrapper />} />
+          <Route path="/:arxivId/:section" element={<PaperAnalysisWrapper />} />
+        </Routes>
+      </ThemeProvider>
     </Router>
   );
 }
