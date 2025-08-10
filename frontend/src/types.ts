@@ -12,6 +12,7 @@ export interface Paper {
   publishedDate: string;
   summary?: string;
   methodology?: string;
+  wikiContent?: any;
 }
 
 // User type definition

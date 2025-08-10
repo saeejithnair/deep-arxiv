@@ -62,7 +62,7 @@ export class PaperService {
         .from('papers')
         .select('*')
         .eq('arxiv_id', arxivId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching paper:', error);
