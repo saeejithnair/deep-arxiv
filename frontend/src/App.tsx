@@ -489,8 +489,28 @@ const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => 
   );
 };
 
+// Helper to normalize arXiv IDs/URLs from the search bar
+function normalizeArxivIdInput(input: string): string {
+  let id = input.trim();
+  try {
+    if (id.startsWith('http')) {
+      const url = new URL(id);
+      const parts = url.pathname.split('/').filter(Boolean);
+      const idx = parts.findIndex((p) => p === 'abs' || p === 'pdf');
+      if (idx >= 0 && parts[idx + 1]) {
+        id = parts[idx + 1].replace(/\.pdf$/i, '');
+      }
+    }
+  } catch {
+    // ignore
+  }
+  id = id.replace(/^arxiv:/i, '').replace(/\.pdf$/i, '').replace(/v\d+$/i, '');
+  return id;
+}
+
 const HomePage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -526,10 +546,14 @@ const HomePage: React.FC = () => {
 
     // Filter by search query
     if (filters.query) {
-      filtered = filtered.filter(paper =>
-        paper.title.toLowerCase().includes(filters.query.toLowerCase()) ||
-        paper.authors.some(author => author.toLowerCase().includes(filters.query.toLowerCase())) ||
-        paper.abstract?.toLowerCase().includes(filters.query.toLowerCase())
+      const qLower = filters.query.toLowerCase();
+      const normalizedId = normalizeArxivIdInput(filters.query);
+      filtered = filtered.filter((paper) =>
+        paper.title.toLowerCase().includes(qLower) ||
+        paper.authors.some((author) => author.toLowerCase().includes(qLower)) ||
+        paper.abstract?.toLowerCase().includes(qLower) ||
+        paper.arxivId === normalizedId ||
+        qLower.includes(paper.arxivId.toLowerCase())
       );
     }
 
@@ -567,6 +591,37 @@ const HomePage: React.FC = () => {
 
     return filtered;
   }, [filters]);
+
+  // Allow Enter in search to open/index arXiv links/IDs directly
+  const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    const value = (e.currentTarget.value || '').trim();
+    if (!value) return;
+
+    const looksLikeArxiv =
+      value.includes('arxiv.org') ||
+      /^(arxiv:)?\d{4}\.\d{4,5}(v\d+)?$/i.test(value) ||
+      /^[a-z\-]+\/\d{7}(v\d+)?$/i.test(value); // legacy ids like cs/0112017
+
+    if (!looksLikeArxiv) return;
+
+    e.preventDefault();
+    const id = normalizeArxivIdInput(value);
+    try {
+      const existing = await PaperService.getPaperByArxivId(id);
+      if (existing) {
+        navigate(`/${existing.arxivId}`);
+        return;
+      }
+      const indexed = await PaperService.indexPaper(id);
+      if (indexed) {
+        setPapers((prev) => [indexed, ...prev]);
+        navigate(`/${indexed.arxivId}`);
+      }
+    } catch (err) {
+      console.error('Search navigation error:', err);
+    }
+  };
 
   return (
     <>
@@ -619,6 +674,7 @@ const HomePage: React.FC = () => {
                 placeholder="Search for papers (or paste a link)"
                 value={filters.query}
                 onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))}
+                onKeyDown={handleSearchKeyDown}
                 className="deep-arxiv-search-input border-arxiv-library-grey focus:border-arxiv-archival-blue focus:ring-arxiv-archival-blue text-arxiv-repository-brown placeholder-arxiv-library-grey dark:bg-dark-card dark:border-dark-border dark:focus:border-dark-primary dark:focus:ring-dark-primary dark:text-dark-text dark:placeholder-dark-text-muted"
               />
             </div>
