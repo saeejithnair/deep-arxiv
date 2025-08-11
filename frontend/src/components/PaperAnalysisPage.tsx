@@ -471,27 +471,6 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
                 <h1 className="text-2xl font-semibold text-arxiv-repository-brown dark:text-dark-text mb-6">
                   {currentSection.title}
                 </h1>
-
-                {/* Relevant Sections */}
-                {currentSection.relevantSections && currentSection.relevantSections.length > 0 && (
-                  <div className="mb-6 p-5 bg-arxiv-cool-wash dark:bg-dark-secondary rounded-lg border border-arxiv-library-grey dark:border-dark-border">
-                    <h4 className="font-medium text-arxiv-archival-blue dark:text-dark-primary mb-3">Relevant paper sections</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                      {currentSection.relevantSections.map((section) => (
-                        <a
-                          key={section}
-                          href={`https://arxiv.org/abs/${paper.arxivId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-arxiv-link-blue hover:text-arxiv-archival-blue text-sm capitalize hover:underline"
-                        >
-                          {section.replace('-', ' ')}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Main Content */}
                 <div className="prose max-w-none text-arxiv-repository-brown dark:text-dark-text">
                   <div
