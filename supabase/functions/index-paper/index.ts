@@ -1,10 +1,17 @@
 // @ts-nocheck
-// Supabase Edge Function: index-paper (hardened JSON + better errors)
+// Supabase Edge Function: index-paper (research-grade wiki generation)
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as b64encode } from "https://deno.land/std@0.203.0/encoding/base64.ts";
 
-type WikiContent = Record<string, { title: string; content: string }>;
+type WikiSection = {
+  id: string;
+  title: string;
+  content?: string;
+  children?: WikiSection[];
+};
+
+type WikiContent = WikiSection[];
 
 interface IndexPaperRequest {
   arxiv_id?: string;
@@ -16,29 +23,44 @@ interface IndexPaperRequest {
   debug?: boolean;
 }
 
-const OPENAI_BASE_URL = "https://api.openai.com/v1"; // keep hardcoded
+const OPENAI_BASE_URL = "https://api.openai.com/v1";
 
 function buildPublicStorageUrl(baseUrl: string, bucket: string, objectPath: string): string {
   const trimmed = baseUrl.replace(/\/$/, "");
   return `${trimmed}/storage/v1/object/public/${bucket}/${objectPath}`;
 }
 
+// Improved stub with research-oriented structure
 function buildStubWiki(title: string, arxivId: string, category: string): WikiContent {
-  return {
-    overview: { title: "Overview", content: `Concise analysis of "${title}" (arXiv:${arxivId}) in ${category}.` },
-    methodology: { title: "Methodology and Approach", content: "Problem setup, assumptions, experiments." },
-    results: { title: "Results and Analysis", content: "Key results and comparisons to prior work." },
-    theoretical: { title: "Theoretical Foundations", content: "Core formalism and reasoning." },
-    impact: { title: "Impact and Significance", content: `Implications for ${category} research and practice.` },
-    related: { title: "Related Work and Context", content: "Positioning in the literature and notable refs." },
-  };
+  const sections: WikiSection[] = [
+    {
+      id: "pipeline-overview",
+      title: "Pipeline Overview",
+      content: `## What This Paper Does\n*Analysis pending for "${title}" (arXiv:${arxivId})*\n\n## Input → Output Transformation\n- **Input**: [Pending analysis]\n- **Output**: [Pending analysis]\n- **Key Transformation**: [Pending analysis]`,
+    },
+    {
+      id: "technical-approach",
+      title: "Technical Approach",
+      content: "## Architecture\n[Pending analysis]\n\n## Training Pipeline\n[Pending analysis]\n\n## Loss Functions\n[Pending analysis]",
+    },
+    {
+      id: "experiments",
+      title: "Experiments & Results",
+      content: "## Evaluation Setup\n[Pending analysis]\n\n## Key Results\n[Pending analysis]\n\n## Comparison to Baselines\n[Pending analysis]",
+    },
+    {
+      id: "implementation",
+      title: "Implementation Details",
+      content: "## Reproducibility\n[Pending analysis]\n\n## Computational Requirements\n[Pending analysis]",
+    },
+  ];
+  return sections;
 }
 
 async function fetchArxivEntry(arxivId: string) {
   const res = await fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`);
   if (!res.ok) throw new Error(`arXiv API failed: ${res.status}`);
   const xmlText = await res.text();
-
   const entryMatch = xmlText.match(/<entry[\s\S]*?>([\s\S]*?)<\/entry>/i);
   if (!entryMatch) throw new Error("No <entry> found in arXiv response");
   const entryXml = entryMatch[1];
@@ -73,115 +95,213 @@ async function uploadPdf(supabase: any, objectPath: string, pdfBytes: Uint8Array
   }
 }
 
-/* ---------------- JSON sanitizer ---------------- */
-
+/* ---------------- Enhanced JSON Parser ---------------- */
 function parseJsonFromText(text: string): any {
   const trimmed = (text || "").trim();
-
-  // ```json ... ``` or ``` ... ```
-  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  if (fenceMatch) {
-    const inner = fenceMatch[1].trim();
-    return JSON.parse(inner);
+  
+  // Try various extraction methods
+  const strategies = [
+    // Direct parse
+    () => JSON.parse(trimmed),
+    // Code fence extraction
+    () => {
+      const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      return match ? JSON.parse(match[1].trim()) : null;
+    },
+    // Find JSON boundaries
+    () => {
+      const start = trimmed.indexOf('[') !== -1 ? trimmed.indexOf('[') : trimmed.indexOf('{');
+      const end = trimmed.lastIndexOf(']') !== -1 ? trimmed.lastIndexOf(']') : trimmed.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        return JSON.parse(trimmed.slice(start, end + 1));
+      }
+      return null;
+    }
+  ];
+  
+  for (const strategy of strategies) {
+    try {
+      const result = strategy();
+      if (result) return result;
+    } catch {}
   }
-
-  // any fenced block somewhere
-  const anyFence = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (anyFence) {
-    return JSON.parse(anyFence[1].trim());
-  }
-
-  // raw parse
-  try {
-    return JSON.parse(trimmed);
-  } catch {}
-
-  // slice from first { to last }
-  const first = trimmed.indexOf("{");
-  const last = trimmed.lastIndexOf("}");
-  if (first !== -1 && last !== -1 && last > first) {
-    const slice = trimmed.slice(first, last + 1);
-    return JSON.parse(slice);
-  }
-
-  throw new Error(`Non-JSON response: ${trimmed.slice(0, 500)}`);
+  
+  throw new Error(`Failed to extract JSON from response: ${trimmed.slice(0, 500)}`);
 }
 
-/* ---------------- Provider clients ---------------- */
+/* ---------------- Provider Implementations with Enhanced Prompts ---------------- */
 
-// OpenAI: chat.completions with JSON-only instruction
+function slugifyId(input: string): string {
+  return (input || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function normalizeWiki(input: any): WikiContent {
+  if (!input) throw new Error("Empty wiki JSON");
+  
+  if (Array.isArray(input)) {
+    return input.map((s: any) => ({
+      id: s?.id || slugifyId(s?.title || "section"),
+      title: s?.title || s?.id || "Section",
+      content: typeof s?.content === "string" ? s.content : undefined,
+      children: Array.isArray(s?.children) ? normalizeWiki(s.children) as any : undefined,
+    }));
+  }
+  
+  if (Array.isArray(input?.sections)) {
+    return normalizeWiki(input.sections);
+  }
+  
+  throw new Error("Unrecognized wiki JSON format");
+}
+
+// Enhanced prompts for research-grade output
+const RESEARCH_WIKI_SYSTEM_PROMPT = `You are an expert ML/AI researcher creating technical documentation for other researchers. Your analysis must be:
+1. TECHNICALLY PRECISE: Use exact terminology, equations, and implementation details
+2. PIPELINE-FOCUSED: Always frame the work as input→transformations→output
+3. REPRODUCIBILITY-ORIENTED: Include all details needed to reimplement
+4. EVIDENCE-BASED: Only state what you can verify from the source material
+Output ONLY valid JSON. No markdown code fences, no prose outside JSON.`;
+
+const RESEARCH_WIKI_USER_PROMPT = (title: string, arxivId: string, category: string, abstract: string, pdfUrl?: string) => `
+Analyze this paper and create a researcher-grade wiki as a JSON array of sections.
+
+CRITICAL REQUIREMENTS:
+1. READ THE PDF if available (${pdfUrl ? 'PDF PROVIDED' : 'PDF NOT PROVIDED'}). Extract actual technical details.
+2. Structure sections based on THIS paper's content, not a generic template
+3. Every section must have substantive technical content or be omitted entirely
+4. Use this exact JSON format: [{"id": "string", "title": "string", "content": "markdown", "children": [optional]}]
+
+SECTION STRUCTURE GUIDELINES:
+
+**"pipeline-overview"**: The Complete Data Flow
+- Map the ENTIRE pipeline: raw inputs → preprocessing → model stages → outputs
+- Specify data types, dimensions, formats at each stage
+- Include pseudocode for key transformations
+Example content structure:
+## Input Pipeline
+- **Raw Input**: Images (224×224×3 RGB) from ImageNet
+- **Preprocessing**: ResNet normalization, random crops, horizontal flips
+- **Batch Formation**: 256 samples, mixed precision
+
+## Model Pipeline  
+\`\`\`python
+x = self.encoder(images)  # [B, 256, 56, 56]
+z = self.bottleneck(x)     # [B, 512, 28, 28]
+logits = self.head(z)      # [B, num_classes]
+\`\`\`
+
+## Output Space
+- **Training**: Cross-entropy loss over 1000 classes
+- **Inference**: Top-5 predictions with confidence scores
+
+**"architecture"**: Complete Technical Specification
+- Layer-by-layer architecture with dimensions
+- Key innovations and why they work
+- Attention mechanisms, normalization, activations
+- Include architecture diagrams as ASCII or described precisely
+
+**"training"**: Full Training Recipe
+- Dataset details (size, source, preprocessing, augmentations)
+- Optimization (optimizer, LR schedule, warmup, decay)
+- Loss functions with mathematical formulation
+- Training dynamics (convergence, instabilities, solutions)
+- Hyperparameters (batch size, epochs, regularization)
+Example:
+## Loss Function
+$$\\mathcal{L} = \\mathcal{L}_{CE} + \\lambda_{reg}||\\theta||_2 + \\beta\\mathcal{L}_{aux}$$
+where $\\mathcal{L}_{CE}$ is cross-entropy, $\\lambda_{reg}=0.0001$
+
+**"experiments"**: Detailed Evaluation
+- Evaluation metrics and datasets
+- Main results with EXACT numbers from tables
+- Ablation studies showing impact of each component
+- Failure modes and limitations observed
+- Statistical significance if provided
+
+**"implementation"**: Reproducibility Details
+- Compute requirements (GPUs, memory, training time)
+- Framework and version requirements
+- Critical implementation details often in appendix
+- Known issues or tricks for stability
+- Code snippets for tricky parts
+
+**"key-insights"**: Why This Works (Research Understanding)
+- Core innovations and why they're effective
+- Theoretical justification if provided
+- Connections to related work
+- What makes this better than prior work
+
+**"related-work"**: Contextual Positioning
+- How this extends/differs from cited papers
+- What problems it solves that others don't
+- Performance comparisons with specific baselines
+
+Paper Details:
+Title: ${title}
+ArXiv: ${arxivId}  
+Category: ${category}
+Abstract: ${abstract}
+${pdfUrl ? `PDF URL: ${pdfUrl}` : ''}
+
+IMPORTANT:
+- If you cannot access the PDF or find specific details, create sections based on the abstract but mark limitations clearly
+- Include actual numbers, equations, and code when available
+- Omit sections if no substantive content available
+- For each claim, indicate source: [Section X.Y], [Table N], [Figure M], [Abstract], or [Inferred]
+
+Output the JSON array directly with no additional text.`;
+
 async function callOpenAIForWiki(
   apiKey: string,
   model: string,
   args: { title: string; arxivId: string; abstract?: string; category?: string; pdfUrl?: string }
 ): Promise<WikiContent> {
   const { title, arxivId, abstract = "", category = "Computer Science", pdfUrl } = args;
-
-  const sys = "You are a strict JSON formatter. Output ONLY a JSON object. No code fences. No prose.";
-  const instructions = `Generate a concise wiki-style JSON for an arXiv paper with exactly these keys: overview, methodology, results, theoretical, impact, related. Each value must be {"title":"...","content":"..."}.
-Keep it factual and concise.
-
-Title: ${title} | arXiv: ${arxivId} | Category: ${category}
-Abstract: ${abstract}
-PDF: ${pdfUrl ?? "(not provided)"}
-
-Output VALID JSON ONLY.`;
-
+  
   const endpoint = `${OPENAI_BASE_URL}/chat/completions`;
   const body = {
     model,
-    temperature: 0.2,
-    response_format: { type: "json_object" },
+    temperature: 0.1,
+    max_tokens: 4000,
     messages: [
-      { role: "system", content: sys },
-      { role: "user", content: instructions },
+      { role: "system", content: RESEARCH_WIKI_SYSTEM_PROMPT },
+      { role: "user", content: RESEARCH_WIKI_USER_PROMPT(title, arxivId, category, abstract, pdfUrl) },
     ],
   };
-
+  
   const res = await fetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify(body),
   });
-
+  
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
     throw new Error(`OpenAI ${res.status}: ${errText.slice(0, 2000)}`);
   }
-
+  
   const json = await res.json();
   const text = json?.choices?.[0]?.message?.content ?? "";
+  
   try {
-    return parseJsonFromText(text) as WikiContent;
+    const parsed = parseJsonFromText(text);
+    return normalizeWiki(parsed);
   } catch (e) {
-    throw new Error(`OpenAI returned non-JSON after sanitize: ${(e as Error).message}`);
+    throw new Error(`OpenAI returned invalid wiki JSON: ${(e as Error).message}`);
   }
 }
 
-// Anthropic: text-only with strong JSON instructions
 async function callAnthropicForWiki(
   apiKey: string,
   model: string,
   args: { title: string; arxivId: string; abstract?: string; category?: string; pdfUrl?: string }
 ): Promise<WikiContent> {
   const { title, arxivId, abstract = "", category = "Computer Science", pdfUrl } = args;
-
-  const system = "You are a JSON formatter. Output ONLY a JSON object, no code fences, no prose.";
-
-  const prompt =
-`Generate a concise wiki-style JSON for this arXiv paper.
-Keys exactly: overview, methodology, results, theoretical, impact, related.
-Each value: {"title":"...","content":"..."}.
-Be factual and concise.
-
-Title: ${title}
-arXiv: ${arxivId}
-Category: ${category}
-Abstract: ${abstract}
-PDF: ${pdfUrl ?? "(not provided)"}
-
-Output VALID JSON ONLY.`;
-
+  
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -191,28 +311,35 @@ Output VALID JSON ONLY.`;
     },
     body: JSON.stringify({
       model,
-      max_tokens: 2048,
-      system,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+      max_tokens: 4000,
+      temperature: 0.1,
+      system: RESEARCH_WIKI_SYSTEM_PROMPT,
+      messages: [{ 
+        role: "user", 
+        content: [{ 
+          type: "text", 
+          text: RESEARCH_WIKI_USER_PROMPT(title, arxivId, category, abstract, pdfUrl) 
+        }] 
+      }],
     }),
   });
-
+  
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
     throw new Error(`Anthropic ${res.status}: ${errText.slice(0, 2000)}`);
   }
-
+  
   const json = await res.json();
   const text = (json?.content || []).filter((c: any) => c?.type === "text").map((c: any) => c.text).join("\n");
-
+  
   try {
-    return parseJsonFromText(text) as WikiContent;
+    const parsed = parseJsonFromText(text);
+    return normalizeWiki(parsed);
   } catch (e) {
-    throw new Error(`Anthropic returned non-JSON after sanitize: ${(e as Error).message}`);
+    throw new Error(`Anthropic returned invalid wiki JSON: ${(e as Error).message}`);
   }
 }
 
-// Gemini: inline PDF ≤20MB; responseMimeType JSON; sanitize
 async function callGeminiForWiki(
   apiKey: string,
   title: string,
@@ -224,59 +351,56 @@ async function callGeminiForWiki(
   pdfUrl?: string
 ): Promise<WikiContent> {
   if (!apiKey) throw new Error("GEMINI_API_KEY missing");
-  const endpoint =
-    "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
+  
+  const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
   const MAX_INLINE = 20 * 1024 * 1024;
+  
+  // Enhanced prompt for Gemini with PDF access
+  const geminiPrompt = `${RESEARCH_WIKI_USER_PROMPT(title, arxivId, category, abstract, pdfUrl)}
 
-  const prompt =
-`Return ONLY a JSON object with keys: overview, methodology, results, theoretical, impact, related.
-Each value is {"title":"...","content":"..."}.
-Be factual and concise.
-
-Title: ${title} | arXiv: ${arxivId} | Category: ${category}
-Abstract: ${abstract}
-PDF: ${pdfUrl ?? "(not provided)"} `;
-
+${pdfBytes && pdfBytes.byteLength <= MAX_INLINE ? 
+  'IMPORTANT: A PDF is attached. Read it thoroughly and extract specific technical details, equations, hyperparameters, and results.' : 
+  'Note: PDF too large to attach inline. Work with available information.'}`;
+  
   const parts: any[] = [];
   if (pdfBytes && pdfBytes.byteLength <= MAX_INLINE) {
     const b64 = b64encode(pdfBytes);
     parts.push({ inlineData: { mimeType: "application/pdf", data: b64 } });
   }
-  parts.push({ text: prompt });
-
+  parts.push({ text: geminiPrompt });
+  
   const body = {
     contents: [{ parts }],
     generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 2048,
+      temperature: 0.1,
+      maxOutputTokens: 4096,
       responseMimeType: "application/json",
     },
   };
-
+  
   const res = await fetch(`${endpoint}?key=${apiKey}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-
+  
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
     throw new Error(`Gemini ${res.status}: ${errText.slice(0, 2000)}`);
   }
-
+  
   const json = await res.json();
-  const text =
-    json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join("\n") || "";
-
+  const text = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join("\n") || "";
+  
   try {
-    return parseJsonFromText(text) as WikiContent;
+    const parsed = parseJsonFromText(text);
+    return normalizeWiki(parsed);
   } catch (e) {
-    throw new Error(`Gemini returned non-JSON after sanitize: ${(e as Error).message}`);
+    throw new Error(`Gemini returned invalid wiki JSON: ${(e as Error).message}`);
   }
 }
 
-/* ---------------- Utils ---------------- */
-
+/* ---------------- Utilities ---------------- */
 function normalizeArxivId(input: string): string {
   let id = input.trim();
   try {
@@ -299,38 +423,38 @@ const VALID_ANTHROPIC = /^(claude-3-(opus|sonnet|haiku)-\d{8}|claude-3-7-sonnet-
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
+  
   const t0 = Date.now();
   const debugLog: any = { t0, notes: [] };
-
+  
   function log(note: string, extra?: any) {
     const item = extra ? { note, extra } : { note };
     debugLog.notes.push(item);
     console.log("[index-paper]", note, extra ?? "");
   }
-
+  
   try {
     const body: IndexPaperRequest = await req.json().catch(() => ({}));
     const { arxiv_id, force, provider: providerOverride, openai_model, gemini_model, anthropic_model, debug } = body || {};
+    
     if (!arxiv_id) {
       return new Response(JSON.stringify({ error: "Missing arxiv_id" }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
     }
-
-    const supabaseUrl =
-      Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL") || Deno.env.get("SB_URL") || "";
-    const supabaseServiceKey =
-      Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SB_SERVICE_ROLE_KEY") || "";
+    
+    const supabaseUrl = Deno.env.get("PROJECT_URL") || Deno.env.get("SUPABASE_URL") || Deno.env.get("SB_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SB_SERVICE_ROLE_KEY") || "";
     const geminiKey = Deno.env.get("GEMINI_API_KEY") || "";
     const openaiKey = Deno.env.get("OPENAI_API_KEY") || "";
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
-
-    const openaiModel = openai_model || Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini";
+    
+    // Use more capable models by default for better results
+    const openaiModel = openai_model || Deno.env.get("OPENAI_MODEL") || "gpt-4o";
     const geminiModel = gemini_model || Deno.env.get("GEMINI_MODEL") || "gemini-2.5-pro";
     const anthropicModel = anthropic_model || Deno.env.get("ANTHROPIC_MODEL") || "claude-3-7-sonnet-20250219";
-
+    
     log("env summary", {
       hasServiceKey: !!supabaseServiceKey,
       supabaseUrl,
@@ -341,28 +465,28 @@ Deno.serve(async (req) => {
       anthropicModel,
       geminiModel,
     });
-
+    
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error("Missing Supabase secrets: set SERVICE_ROLE_KEY and PROJECT_URL (or SUPABASE_URL)");
     }
-
-    // Validate explicit provider override against available keys
+    
+    // Validate provider availability
     if (providerOverride === "openai" && !openaiKey) throw new Error("OPENAI_API_KEY missing (provider=openai)");
     if (providerOverride === "anthropic" && !anthropicKey) throw new Error("ANTHROPIC_API_KEY missing (provider=anthropic)");
     if (providerOverride === "gemini" && !geminiKey) throw new Error("GEMINI_API_KEY missing (provider=gemini)");
-
-    // Validate Anthropic model name if provider is Anthropic
+    
+    // Validate Anthropic model
     if ((providerOverride === "anthropic" || anthropicKey) && providerOverride !== "openai" && providerOverride !== "gemini") {
       if (!VALID_ANTHROPIC.test(anthropicModel)) {
         throw new Error(`Invalid Anthropic model: ${anthropicModel}`);
       }
     }
-
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const normalized = normalizeArxivId(arxiv_id);
     log("normalized arxiv id", { input: arxiv_id, normalized });
-
-    // Existing?
+    
+    // Check for existing entry
     if (!force) {
       const { data: existing, error: exErr } = await supabase.from("papers").select("*").eq("arxiv_id", normalized).maybeSingle();
       if (exErr) log("existing lookup error", exErr);
@@ -371,15 +495,16 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify(resp), { headers: { ...corsHeaders, "content-type": "application/json" } });
       }
     }
-
-    // 1) Metadata
+    
+    // Fetch metadata
     const meta = await fetchArxivEntry(normalized);
     log("metadata", { title: meta.title, category: meta.category, authorsCount: meta.authors?.length });
-
-    // 2) PDF ensure in storage + bytes
+    
+    // Get PDF
     const objectPath = `${normalized}.pdf`;
     const { data: dl } = await supabase.storage.from("papers").download(objectPath);
     let pdfBytes: Uint8Array | null = null;
+    
     if (dl) {
       pdfBytes = new Uint8Array(await dl.arrayBuffer());
       log("pdf found in storage", { bytes: pdfBytes.byteLength });
@@ -389,28 +514,33 @@ Deno.serve(async (req) => {
       await uploadPdf(supabase, objectPath, pdfBytes);
       log("uploaded pdf to storage", { objectPath });
     }
+    
     const pdfPublicUrl = buildPublicStorageUrl(supabaseUrl, "papers", objectPath);
     log("pdfPublicUrl", { pdfPublicUrl });
-
-    // 3) Provider resolution - prefer Anthropic by default; allow override; try fallbacks
+    
+    // Provider selection strategy - prioritize Gemini for PDF reading
     let pick: "openai" | "anthropic" | "gemini" | "stub" = "stub";
     const providersToTry: Array<"openai" | "anthropic" | "gemini"> = [];
+    
     if (providerOverride) {
       providersToTry.push(providerOverride);
+      // Add fallbacks
+      if (providerOverride !== "gemini" && geminiKey) providersToTry.push("gemini");
       if (providerOverride !== "anthropic" && anthropicKey) providersToTry.push("anthropic");
       if (providerOverride !== "openai" && openaiKey) providersToTry.push("openai");
-      if (providerOverride !== "gemini" && geminiKey) providersToTry.push("gemini");
     } else {
+      // Default order: Gemini (best PDF reading), then Anthropic, then OpenAI
+      if (geminiKey) providersToTry.push("gemini");
       if (anthropicKey) providersToTry.push("anthropic");
       if (openaiKey) providersToTry.push("openai");
-      if (geminiKey) providersToTry.push("gemini");
     }
+    
     log("provider order", { providersToTry });
-
-    // 4) Attempt providers in order (with loud errors). Validate Anthropic model when attempting it.
+    
+    // Try providers in order
     let wiki: WikiContent | null = null;
     const providerErrors: Record<string, string> = {};
-
+    
     for (const attempt of providersToTry) {
       try {
         if (attempt === "anthropic") {
@@ -453,13 +583,13 @@ Deno.serve(async (req) => {
         log("provider error", { provider: attempt, error: msg });
       }
     }
-
+    
     if (!wiki) {
       wiki = buildStubWiki(meta.title, normalized, meta.category);
       pick = "stub";
     }
-
-    // 5) Upsert
+    
+    // Upsert to database
     const payload = {
       arxiv_id: normalized,
       title: meta.title,
@@ -469,20 +599,24 @@ Deno.serve(async (req) => {
       wiki_content: wiki!,
       status: "cached",
       last_indexed: new Date().toISOString(),
+      category: meta.category,
+      published_date: meta.published || "Unknown",
     };
-
+    
     let data, error;
     const { data: existing2 } = await supabase.from("papers").select("id").eq("arxiv_id", normalized).maybeSingle();
+    
     if (existing2) {
       ({ data, error } = await supabase.from("papers").update(payload).eq("arxiv_id", normalized).select("*").single());
     } else {
       ({ data, error } = await supabase.from("papers").insert(payload).select("*").single());
     }
+    
     if (error) throw error;
-
+    
     const t1 = Date.now();
     log("done", { ms: t1 - t0 });
-
+    
     return new Response(
       JSON.stringify({
         ok: true,

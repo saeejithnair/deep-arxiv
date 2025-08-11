@@ -1,9 +1,10 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Paper } from '../types';
 import PDFViewer from './PDFViewer';
 import { useTheme } from '../App';
+import { PaperService } from '../services/paperService';
 
 interface PaperSection {
   id: string;
@@ -63,8 +64,45 @@ const PDFIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 
 // Generate paper analysis sections based on paper or wikiContent if present
 const getPaperSections = (paper: Paper): PaperSection[] => {
-  // Prefer server-provided wiki content if available
+  // Prefer server-provided wiki content if available (supports dynamic arrays or legacy objects)
   const wiki = paper.wikiContent as any | null;
+
+  const knownKeys = ['overview', 'methodology', 'results', 'theoretical', 'impact', 'related'];
+
+  const flattenSection = (section: any, depth = 0): string => {
+    const own = typeof section?.content === 'string' ? section.content : '';
+    const kids = Array.isArray(section?.children) ? section.children : [];
+    if (!kids.length) return own;
+    const childHeader = (t: string) => (depth === 0 ? `## ${t}` : `### ${t}`);
+    const childBlocks = kids
+      .map((c: any) => {
+        const title = String(c?.title || c?.id || 'Section');
+        const body = flattenSection(c, depth + 1);
+        return `${childHeader(title)}\n\n${body}`.trim();
+      })
+      .filter(Boolean)
+      .join('\n\n');
+    return [own, childBlocks].filter(Boolean).join('\n\n');
+  };
+
+  if (Array.isArray(wiki)) {
+    return wiki.map((s: any) => ({
+      id: String(s?.id || s?.title || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      title: String(s?.title || s?.id || 'Section'),
+      level: 1,
+      content: flattenSection(s),
+    }));
+  }
+
+  if (wiki && typeof wiki === 'object' && Array.isArray(wiki.sections)) {
+    return wiki.sections.map((s: any) => ({
+      id: String(s?.id || s?.title || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      title: String(s?.title || s?.id || 'Section'),
+      level: 1,
+      content: flattenSection(s),
+    }));
+  }
+
   if (wiki && typeof wiki === 'object') {
     const toSection = (
       id: string,
@@ -81,6 +119,7 @@ const getPaperSections = (paper: Paper): PaperSection[] => {
         relevantSections: relevant,
       };
     };
+    // Legacy fixed-topology fallback
     return [
       toSection(
         'overview',
@@ -323,9 +362,55 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = useState(false);
   const [activeSection, setActiveSection] = useState(section || 'overview');
-  const sections = getPaperSections(paper);
+  const [localPaper, setLocalPaper] = useState<Paper>(paper);
+  const sections = useMemo(() => getPaperSections(localPaper), [localPaper]);
   const currentSection = sections.find(s => s.id === activeSection) || sections[0];
   const tableOfContents = activeSection === 'pdf' ? [] : getTableOfContents(currentSection.content);
+
+  useEffect(() => {
+    setLocalPaper(paper);
+  }, [paper]);
+
+  // Provider/model controls
+  const [provider, setProvider] = useState<'openai' | 'gemini' | 'anthropic'>('anthropic');
+  const [model, setModel] = useState<string>('claude-3-7-sonnet-20250219');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    // Update model placeholder/default when provider changes
+    if (provider === 'openai') setModel((m) => m && !m.startsWith('claude') && !m.startsWith('gemini') ? m : 'gpt-4o');
+    if (provider === 'gemini') setModel((m) => m.startsWith('gemini') ? m : 'gemini-2.5-pro');
+    if (provider === 'anthropic') setModel((m) => m.startsWith('claude') ? m : 'claude-3-7-sonnet-20250219');
+  }, [provider]);
+
+  const lastIndexedHuman = useMemo(() => {
+    const ts = localPaper.lastIndexed;
+    if (!ts) return null;
+    try {
+      const d = new Date(ts);
+      return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } catch {
+      return ts;
+    }
+  }, [localPaper.lastIndexed]);
+
+  const refreshAnalysis = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      const options: any = { force: true, provider };
+      if (provider === 'openai') options.openai_model = model || 'gpt-4o';
+      if (provider === 'gemini') options.gemini_model = model || 'gemini-2.5-pro';
+      if (provider === 'anthropic') options.anthropic_model = model || 'claude-3-7-sonnet-20250219';
+      const updated = await PaperService.indexPaper(localPaper.arxivId, options);
+      if (updated) setLocalPaper(updated);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Refresh failed', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Define navigation items including PDF
   const navigationItems = [
@@ -483,12 +568,37 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
 
                 {/* Refresh Analysis */}
                 <div className="mt-8 pt-6 border-t border-arxiv-library-grey dark:border-dark-border">
-                  <div className="flex items-center justify-between">
-                    <button className="text-arxiv-link-blue hover:text-arxiv-archival-blue text-sm font-medium">
-                      Refresh this analysis
-                    </button>
-                    <div className="text-xs text-arxiv-library-grey dark:text-dark-text-muted">
-                      Last indexed: {new Date().toLocaleDateString()} ({Math.floor(Math.random() * 12) + 1} {Math.random() > 0.5 ? 'hours' : 'minutes'} ago)
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-arxiv-library-grey dark:text-dark-text-muted">Provider</label>
+                      <select
+                        value={provider}
+                        onChange={(e) => setProvider(e.target.value as any)}
+                        className="px-2 py-1 text-sm border border-arxiv-library-grey rounded-md dark:bg-dark-secondary dark:border-dark-border"
+                      >
+                        <option value="anthropic">Anthropic</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="gemini">Gemini</option>
+                      </select>
+                      <label className="text-xs text-arxiv-library-grey dark:text-dark-text-muted">Model</label>
+                      <input
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder={provider === 'openai' ? 'gpt-4o' : provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-3-7-sonnet-20250219'}
+                        className="px-2 py-1 text-sm border border-arxiv-library-grey rounded-md w-56 dark:bg-dark-secondary dark:border-dark-border"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={refreshAnalysis}
+                        disabled={isRefreshing}
+                        className="text-arxiv-link-blue hover:text-arxiv-archival-blue text-sm font-medium disabled:opacity-60"
+                      >
+                        {isRefreshing ? 'Refreshing…' : 'Refresh this analysis'}
+                      </button>
+                      <div className="text-xs text-arxiv-library-grey dark:text-dark-text-muted">
+                        {lastIndexedHuman ? `Last indexed: ${lastIndexedHuman}` : 'Last indexed: unknown'}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -560,8 +670,29 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
                   <div className="mt-6 pt-4 border-t border-arxiv-library-grey dark:border-dark-border">
                     <p className="text-xs text-arxiv-library-grey mb-2 dark:text-dark-text-muted">Analysis tools</p>
                     <div className="space-y-2 text-sm">
-                      <button className="block deep-arxiv-link hover:underline text-arxiv-link-blue hover:text-arxiv-archival-blue dark:text-dark-primary dark:hover:text-dark-primary-hover">
-                        Refresh this analysis
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={provider}
+                          onChange={(e) => setProvider(e.target.value as any)}
+                          className="px-2 py-1 text-xs border border-arxiv-library-grey rounded-md dark:bg-dark-secondary dark:border-dark-border"
+                        >
+                          <option value="anthropic">Anthropic</option>
+                          <option value="openai">OpenAI</option>
+                          <option value="gemini">Gemini</option>
+                        </select>
+                        <input
+                          value={model}
+                          onChange={(e) => setModel(e.target.value)}
+                          placeholder={provider === 'openai' ? 'gpt-4o' : provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-3-7-sonnet-20250219'}
+                          className="px-2 py-1 text-xs border border-arxiv-library-grey rounded-md w-40 dark:bg-dark-secondary dark:border-dark-border"
+                        />
+                      </div>
+                      <button
+                        onClick={refreshAnalysis}
+                        disabled={isRefreshing}
+                        className="block deep-arxiv-link hover:underline text-arxiv-link-blue hover:text-arxiv-archival-blue dark:text-dark-primary dark:hover:text-dark-primary-hover disabled:opacity-60"
+                      >
+                        {isRefreshing ? 'Refreshing…' : 'Refresh this analysis'}
                       </button>
                       <button
                         onClick={() => setActiveSection('pdf')}

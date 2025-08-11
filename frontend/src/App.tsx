@@ -354,6 +354,8 @@ const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPa
   const [arxivId, setArxivId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [provider, setProvider] = useState<'openai' | 'gemini' | 'anthropic'>('anthropic');
+  const [model, setModel] = useState<string>('claude-3-7-sonnet-20250219');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -363,11 +365,11 @@ const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPa
       setLoading(true);
       setError('');
       
-      const paper = await PaperService.indexPaper(arxivId.trim(), {
-        force: true,
-        provider: 'anthropic',
-        anthropic_model: 'claude-3-7-sonnet-20250219'
-      });
+      const opts: any = { force: true, provider };
+      if (provider === 'openai') opts.openai_model = model || 'gpt-4o';
+      if (provider === 'gemini') opts.gemini_model = model || 'gemini-2.5-pro';
+      if (provider === 'anthropic') opts.anthropic_model = model || 'claude-3-7-sonnet-20250219';
+      const paper = await PaperService.indexPaper(arxivId.trim(), opts);
       if (paper) {
         onPaperAdded(paper);
         setIsModalOpen(false);
@@ -418,6 +420,29 @@ const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPa
                   onChange={(e) => setArxivId(e.target.value)}
                   placeholder="e.g., 1502.03167"
                   className="w-full px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue bg-white text-black placeholder-arxiv-library-grey dark:bg-white dark:text-black dark:border-dark-border"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-arxiv-library-grey dark:text-dark-text-muted">Provider</label>
+                <select
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value as any)}
+                  className="px-2 py-1 text-sm border border-arxiv-library-grey rounded-md dark:bg-white dark:text-black"
+                  disabled={loading}
+                >
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Gemini</option>
+                </select>
+                <label className="text-xs text-arxiv-library-grey dark:text-dark-text-muted">Model</label>
+                <input
+                  type="text"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder={provider === 'openai' ? 'gpt-4o' : provider === 'gemini' ? 'gemini-2.5-pro' : 'claude-3-7-sonnet-20250219'}
+                  className="flex-1 px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue bg-white text-black placeholder-arxiv-library-grey dark:bg-white dark:text-black dark:border-dark-border"
                   disabled={loading}
                 />
               </div>
