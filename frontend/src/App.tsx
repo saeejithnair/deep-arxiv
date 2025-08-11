@@ -125,8 +125,17 @@ const LightModeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 );
 
 const PapiersIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+    {/* Page body with white fill and colored outline */}
+    <path
+      d="M6 2h7l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"
+      fill="white"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+    {/* Folded corner outline */}
+    <path d="M13 2v5h5" fill="white" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
   </svg>
 );
 
@@ -408,7 +417,7 @@ const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPa
                   value={arxivId}
                   onChange={(e) => setArxivId(e.target.value)}
                   placeholder="e.g., 1502.03167"
-                  className="w-full px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue dark:bg-dark-input dark:border-dark-border dark:text-dark-text dark:focus:ring-dark-primary"
+                  className="w-full px-3 py-2 border border-arxiv-library-grey rounded-md focus:outline-none focus:ring-2 focus:ring-arxiv-archival-blue bg-white text-black placeholder-arxiv-library-grey dark:bg-white dark:text-black dark:border-dark-border"
                   disabled={loading}
                 />
               </div>
@@ -448,16 +457,21 @@ const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => 
 
   return (
     <>
-      <div className="paper-card bg-white border-arxiv-library-grey hover:border-arxiv-archival-blue dark:bg-dark-card dark:border-dark-border dark:hover:border-dark-primary" onClick={() => navigate(`/${paper.arxivId}`)}>
-        <Link
-          to={`/${paper.arxivId}`}
-          className="paper-card-title text-arxiv-repository-brown hover:text-arxiv-archival-blue dark:text-dark-text dark:hover:text-dark-primary"
-        >
-          {paper.title}
-        </Link>
+      <div
+        className="relative group cursor-pointer rounded-xl border border-arxiv-library-grey bg-white p-5 transition-colors hover:border-arxiv-archival-blue dark:bg-dark-card dark:border-dark-border dark:hover:border-dark-primary"
+        onClick={() => navigate(`/${paper.arxivId}`)}
+      >
+        <div className="pr-10">
+          <Link
+            to={`/${paper.arxivId}`}
+            className="block text-lg font-semibold text-arxiv-repository-brown hover:text-arxiv-archival-blue dark:text-dark-text dark:hover:text-dark-primary"
+          >
+            {paper.title}
+          </Link>
 
-        <div className="paper-card-authors text-arxiv-library-grey dark:text-dark-text-secondary">
-          {paper.authors.slice(0, 2).join(', ')}{paper.authors.length > 2 ? ' et al.' : ''}
+          <div className="mt-1 text-sm text-arxiv-library-grey dark:text-dark-text-secondary">
+            {paper.authors.slice(0, 3).join(', ')}{paper.authors.length > 3 ? ' et al.' : ''}
+          </div>
         </div>
 
         {paper.abstract && (
@@ -466,7 +480,7 @@ const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => 
           </div>
         )}
 
-          <div className="paper-card-stats text-arxiv-library-grey dark:text-dark-text-muted">
+        <div className="paper-card-stats text-arxiv-library-grey dark:text-dark-text-muted">
           <div className="flex items-center gap-1">
             <ViewIcon className="text-arxiv-library-grey dark:text-dark-text-muted" />
             <span>{paper.views}</span>
@@ -479,7 +493,7 @@ const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => 
           )}
         </div>
 
-        <div className="paper-card-arrow text-arxiv-library-grey group-hover:text-arxiv-archival-blue dark:text-dark-text-muted dark:group-hover:text-dark-primary">
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-arxiv-library-grey group-hover:text-arxiv-archival-blue dark:text-dark-text-muted dark:group-hover:text-dark-primary">
           <ArrowRightIcon />
         </div>
       </div>
@@ -519,6 +533,7 @@ const HomePage: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [papers, setPapers] = useState<Paper[]>([]);
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<SearchFilters>({
     query: '',
@@ -653,19 +668,36 @@ const HomePage: React.FC = () => {
         <header className="deep-arxiv-main-header">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
-              <Link to="/" className="deep-arxiv-brand text-arxiv-repository-brown hover:text-arxiv-archival-blue transition-colors">
-                Deep-Arxiv
+              <Link to="/" className="deep-arxiv-brand text-black hover:text-arxiv-archival-blue transition-colors dark:text-white dark:hover:text-dark-primary">
+                Deep-arXiv
               </Link>
 
               <div className="deep-arxiv-header-right">
-                <span className="deep-arxiv-header-text text-arxiv-library-grey">Get unlimited papers with</span>
+                <span className="deep-arxiv-header-text text-arxiv-library-grey dark:text-dark-text-secondary">Get unlimited papers with</span>
                 <div className="flex items-center gap-1">
                   <PapiersIcon className="text-arxiv-cornell-red" />
-                  <span className="deep-arxiv-link font-medium text-arxiv-link-blue hover:text-arxiv-archival-blue">Deep-Arxiv</span>
+                  <span className="font-medium text-black dark:text-white">Deep-arXiv</span>
                 </div>
-                <button className="deep-arxiv-button-primary bg-arxiv-archival-blue hover:bg-arxiv-link-blue text-white">
+                <button
+                  onClick={async () => {
+                    const url = window.location.href;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                    } catch {
+                      const t = document.createElement('textarea');
+                      t.value = url;
+                      document.body.appendChild(t);
+                      t.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(t);
+                    }
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                  className="px-3 py-1 rounded-md border border-arxiv-library-grey text-black hover:bg-arxiv-warm-wash dark:text-white dark:border-dark-border dark:hover:bg-dark-secondary bg-transparent"
+                >
                   <ShareIcon />
-                  Share
+                  {copied ? 'Copied' : 'Share'}
                 </button>
                 <button 
                   onClick={toggleTheme}
