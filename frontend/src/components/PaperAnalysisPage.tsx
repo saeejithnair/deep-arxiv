@@ -54,8 +54,66 @@ const PDFIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
-// Generate paper analysis sections based on paper
+// Generate paper analysis sections based on paper or wikiContent if present
 const getPaperSections = (paper: Paper): PaperSection[] => {
+  // Prefer server-provided wiki content if available
+  const wiki = paper.wikiContent as any | null;
+  if (wiki && typeof wiki === 'object') {
+    const toSection = (
+      id: string,
+      titleFallback: string,
+      contentFallback: string,
+      relevant: string[],
+    ): PaperSection => {
+      const entry = wiki[id as keyof typeof wiki] as any;
+      return {
+        id,
+        title: (entry?.title as string) || titleFallback,
+        level: 1,
+        content: (entry?.content as string) || contentFallback,
+        relevantSections: relevant,
+      };
+    };
+    return [
+      toSection(
+        'overview',
+        'Overview',
+        `This document provides a comprehensive analysis of the paper "${paper.title}" (arXiv:${paper.arxivId}).`,
+        ['abstract', 'introduction', 'related-work', 'conclusion'],
+      ),
+      toSection(
+        'methodology',
+        'Methodology and Approach',
+        'Details about methods.',
+        ['methodology', 'experimental-setup', 'implementation', 'evaluation'],
+      ),
+      toSection(
+        'results',
+        'Results and Analysis',
+        'Results summary.',
+        ['results', 'experiments', 'analysis', 'discussion'],
+      ),
+      toSection(
+        'theoretical',
+        'Theoretical Foundations',
+        'Theory summary.',
+        ['theory', 'proofs', 'algorithms', 'complexity-analysis'],
+      ),
+      toSection(
+        'impact',
+        'Impact and Significance',
+        'Impact summary.',
+        ['impact', 'applications', 'future-work', 'limitations'],
+      ),
+      toSection(
+        'related',
+        'Related Work and Context',
+        'Related work.',
+        ['related-work', 'background', 'literature-review', 'comparison'],
+      ),
+    ];
+  }
+
   return [
     {
       id: 'overview',
@@ -382,7 +440,7 @@ const PaperAnalysisPage: React.FC<PaperAnalysisPageProps> = ({ paper, section })
           <div className="flex-1 max-w-5xl py-6">
             {activeSection === 'pdf' ? (
               /* PDF Viewer */
-              <PDFViewer arxivId={paper.arxivId} title={paper.title} />
+              <PDFViewer arxivId={paper.arxivId} title={paper.title} pdfUrl={paper.pdfUrl} />
             ) : (
               /* Analysis Content */
               <div className="bg-white dark:bg-dark-card">

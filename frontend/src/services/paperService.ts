@@ -47,7 +47,10 @@ export class PaperService {
         citations: '0', // Default value
         field: 'Computer Science', // Default value
         methodology: '', // Default value
-        wikiContent: row.wiki_content || null
+        wikiContent: row.wiki_content || null,
+        pdfUrl: row.pdf_url || undefined,
+        status: row.status || 'cached',
+        lastIndexed: row.last_indexed || undefined,
       }));
     } catch (error) {
       console.error('Error in getPapers:', error);
@@ -84,7 +87,10 @@ export class PaperService {
         citations: '0', // Default value
         field: 'Computer Science', // Default value
         methodology: '', // Default value
-        wikiContent: data.wiki_content || null
+        wikiContent: data.wiki_content || null,
+        pdfUrl: data.pdf_url || undefined,
+        status: data.status || 'cached',
+        lastIndexed: data.last_indexed || undefined,
       };
     } catch (error) {
       console.error('Error in getPaperByArxivId:', error);
@@ -92,43 +98,52 @@ export class PaperService {
     }
   }
 
-  // Index a new paper (fetch from arXiv and store in database)
-  static async indexPaper(arxivId: string): Promise<Paper | null> {
+  // Index a new paper via Supabase Edge Function (fetch metadata + PDF, upload, LLM generate wiki)
+  static async indexPaper(
+    arxivId: string,
+    options?: {
+      force?: boolean;
+      provider?: 'openai' | 'gemini' | 'anthropic';
+      openai_model?: string;
+      gemini_model?: string;
+      anthropic_model?: string;
+    }
+  ): Promise<Paper | null> {
     try {
       const normalizedId = this.normalizeArxivId(arxivId);
       // First check if paper already exists
       const existingPaper = await this.getPaperByArxivId(normalizedId);
-      if (existingPaper) {
+      if (existingPaper && !options?.force) {
         console.log('Paper already exists:', normalizedId);
         return existingPaper;
       }
-
-      // Fetch paper metadata from arXiv API
-      const paperData = await this.fetchArxivMetadata(normalizedId);
-      if (!paperData) {
-        throw new Error('Failed to fetch paper metadata from arXiv');
+      // Call edge function
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/index-paper`;
+      const provider = options?.provider ?? 'anthropic';
+      const payload: any = {
+        arxiv_id: normalizedId,
+        force: options?.force === true,
+        provider,
+      };
+      if (provider === 'anthropic') {
+        payload.anthropic_model = options?.anthropic_model ?? 'claude-3-7-sonnet-20250219';
+      } else if (provider === 'openai' && options?.openai_model) {
+        payload.openai_model = options.openai_model;
+      } else if (provider === 'gemini' && options?.gemini_model) {
+        payload.gemini_model = options.gemini_model;
       }
 
-      // Generate wiki content using AI (simplified for now)
-      const wikiContent = await this.generateWikiContent(paperData);
-
-      // Insert into database (using only existing columns)
-      const { data, error } = await supabase
-        .from('papers')
-        .insert({
-          arxiv_id: normalizedId,
-          title: paperData.title,
-          authors: paperData.authors,
-          abstract: paperData.abstract,
-          wiki_content: wikiContent
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error inserting paper:', error);
-        throw error;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`index-paper failed: ${resp.status} ${text}`);
       }
+      const json = await resp.json();
+      const data = json.data || json;
 
       return {
         id: data.id,
@@ -136,13 +151,16 @@ export class PaperService {
         title: data.title,
         authors: Array.isArray(data.authors) ? data.authors : [],
         abstract: data.abstract || '',
-        category: 'Computer Science', // Default value
-        publishedDate: 'Unknown', // Default value
-        views: '0', // Default value
-        citations: '0', // Default value
-        field: 'Computer Science', // Default value
-        methodology: '', // Default value
-        wikiContent: data.wiki_content || null
+        category: data.category || 'Computer Science',
+        publishedDate: data.published_date || 'Unknown',
+        views: data.views || '0',
+        citations: data.citations || '0',
+        field: data.field || 'Computer Science',
+        methodology: data.methodology || '',
+        wikiContent: data.wiki_content || null,
+        pdfUrl: data.pdf_url || undefined,
+        status: data.status || 'cached',
+        lastIndexed: data.last_indexed || undefined,
       };
     } catch (error) {
       console.error('Error in indexPaper:', error);
@@ -150,7 +168,7 @@ export class PaperService {
     }
   }
 
-  // Fetch paper metadata from arXiv API
+  // Fetch paper metadata from arXiv API (kept for potential UI-only usage)
   private static async fetchArxivMetadata(arxivId: string): Promise<PaperData | null> {
     try {
       // Use arXiv API to fetch paper metadata

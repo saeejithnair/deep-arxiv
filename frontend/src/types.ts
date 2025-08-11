@@ -13,6 +13,9 @@ export interface Paper {
   summary?: string;
   methodology?: string;
   wikiContent?: any;
+  pdfUrl?: string;
+  status?: 'pending' | 'cached' | 'failed';
+  lastIndexed?: string;
 }
 
 // User type definition

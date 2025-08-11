@@ -354,7 +354,11 @@ const AddPaperCard: React.FC<{ onPaperAdded: (paper: Paper) => void }> = ({ onPa
       setLoading(true);
       setError('');
       
-      const paper = await PaperService.indexPaper(arxivId.trim());
+      const paper = await PaperService.indexPaper(arxivId.trim(), {
+        force: true,
+        provider: 'anthropic',
+        anthropic_model: 'claude-3-7-sonnet-20250219'
+      });
       if (paper) {
         onPaperAdded(paper);
         setIsModalOpen(false);
@@ -462,7 +466,7 @@ const PaperCard: React.FC<{ paper: Paper; user?: User }> = ({ paper, user }) => 
           </div>
         )}
 
-        <div className="paper-card-stats text-arxiv-library-grey dark:text-dark-text-muted">
+          <div className="paper-card-stats text-arxiv-library-grey dark:text-dark-text-muted">
           <div className="flex items-center gap-1">
             <ViewIcon className="text-arxiv-library-grey dark:text-dark-text-muted" />
             <span>{paper.views}</span>
@@ -592,6 +596,17 @@ const HomePage: React.FC = () => {
     return filtered;
   }, [filters, papers]);
 
+  // Safety: dedupe by stable id to avoid React key collisions if a paper is added twice
+  const dedupedPapers = useMemo(() => {
+    const seen = new Set<string>();
+    return filteredPapers.filter((p) => {
+      if (!p?.id) return true;
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+  }, [filteredPapers]);
+
   // Allow Enter in search to open/index arXiv links/IDs directly
   const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
@@ -613,9 +628,17 @@ const HomePage: React.FC = () => {
         navigate(`/${existing.arxivId}`);
         return;
       }
-      const indexed = await PaperService.indexPaper(id);
+      const indexed = await PaperService.indexPaper(id, {
+        force: true,
+        provider: 'anthropic',
+        anthropic_model: 'claude-3-7-sonnet-20250219'
+      });
       if (indexed) {
-        setPapers((prev) => [indexed, ...prev]);
+        setPapers((prev) =>
+          prev.some((p) => p.id === indexed.id || p.arxivId === indexed.arxivId)
+            ? prev
+            : [indexed, ...prev]
+        );
         navigate(`/${indexed.arxivId}`);
       }
     } catch (err) {
@@ -684,9 +707,17 @@ const HomePage: React.FC = () => {
           {/* Papers Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-16">
             {/* Add Paper Card */}
-            <AddPaperCard onPaperAdded={(newPaper) => setPapers(prev => [newPaper, ...prev])} />
+            <AddPaperCard
+              onPaperAdded={(newPaper) =>
+                setPapers((prev) =>
+                  prev.some((p) => p.id === newPaper.id || p.arxivId === newPaper.arxivId)
+                    ? prev
+                    : [newPaper, ...prev]
+                )
+              }
+            />
 
-            {filteredPapers.map((paper) => (
+            {dedupedPapers.map((paper) => (
               <PaperCard key={paper.id} paper={paper} user={user || undefined} />
             ))}
           </div>
@@ -695,7 +726,7 @@ const HomePage: React.FC = () => {
             <div className="text-center py-12">
               <p className="deep-arxiv-text-secondary text-lg">Loading papers...</p>
             </div>
-          ) : filteredPapers.length === 0 ? (
+          ) : dedupedPapers.length === 0 ? (
             <div className="text-center py-12">
               <p className="deep-arxiv-text-secondary text-lg">No papers found matching your search.</p>
             </div>

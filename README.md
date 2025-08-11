@@ -81,6 +81,23 @@ To deploy to Cloudflare:
 wrangler deploy
 ```
 
+## Supabase Functions & Storage
+
+- Set env vars in the frontend: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+- Set Supabase Edge Function secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, optional `GEMINI_API_KEY`.
+
+### Edge Function: index-paper
+
+- Path: `supabase/functions/index-paper/index.ts`
+- Deploy: `supabase functions deploy index-paper --no-verify-jwt`
+- Invoke URL: `{SUPABASE_URL}/functions/v1/index-paper`
+- Request body: `{ "arxiv_id": "<id or URL>" }`
+- Behavior:
+  - Fetches arXiv metadata
+  - Downloads the PDF and uploads it to Storage bucket `papers` (public)
+  - Calls Gemini (if `GEMINI_API_KEY` configured) to produce structured `wiki_content` JSON
+  - Upserts into `public.papers` including `pdf_url`, `wiki_content`, `status`, `last_indexed`
+
 ## Contributing
 
 1. Fork the repository

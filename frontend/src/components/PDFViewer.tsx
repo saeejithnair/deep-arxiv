@@ -10,16 +10,17 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 interface PDFViewerProps {
   arxivId: string;
   title: string;
+  pdfUrl?: string;
 }
 
-const PDFViewer: React.FC<PDFViewerProps> = ({ arxivId, title }) => {
+const PDFViewer: React.FC<PDFViewerProps> = ({ arxivId, title, pdfUrl }) => {
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState<number>(1.2);
 
-  const pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+  const pdfExternalUrl = pdfUrl || `https://arxiv.org/pdf/${arxivId}.pdf`;
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -67,7 +68,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ arxivId, title }) => {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">PDF Not Available</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <a
-            href={pdfUrl}
+            href={pdfExternalUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -91,7 +92,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ arxivId, title }) => {
             {title}
           </h3>
           <a
-            href={pdfUrl}
+            href={pdfExternalUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
@@ -191,7 +192,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ arxivId, title }) => {
         <div className="pdf-container overflow-auto max-h-[80vh] bg-gray-100">
           <div className="flex justify-center py-4">
             <Document
-              file={pdfUrl}
+              file={pdfExternalUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={onDocumentLoadError}
               loading=""
